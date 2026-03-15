@@ -101,7 +101,7 @@ export default function BulkUploadPage() {
         const formData = new FormData();
         formData.append('cv', files[i].file);
 
-        const response = await fetch('http://69.62.125.138:5041/api/candidates/bulk-upload', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/candidates/bulk-upload`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`

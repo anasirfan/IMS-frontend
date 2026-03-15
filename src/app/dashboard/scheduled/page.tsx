@@ -186,7 +186,7 @@ export default function ScheduledInterviewsPage() {
         {interview.cv_path && (
           <div className="flex items-center gap-2">
             <a
-              href={`http://69.62.125.138:5041/uploads/${interview.cv_path}`}
+              href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://suzair.duckdns.org'}/uploads/${interview.cv_path}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg transition-colors text-xs font-medium text-blue-400"

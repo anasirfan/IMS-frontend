@@ -180,7 +180,7 @@ export default function CandidateDetailPage() {
 
     setGeneratingMeet(true);
     try {
-      const response = await fetch('http://69.62.125.138:5041/api/google/create-meet', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/google/create-meet`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -224,7 +224,7 @@ export default function CandidateDetailPage() {
 
     setGeneratingEmailTemplate(true);
     try {
-      const response = await fetch('http://69.62.125.138:5041/api/ai/generate-meeting-email', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/ai/generate-meeting-email`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -262,7 +262,7 @@ export default function CandidateDetailPage() {
 
     setSendingInvite(true);
     try {
-      const response = await fetch(`http://69.62.125.138:5041/api/candidates/${candidate.id}/send-meeting-invite`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/candidates/${candidate.id}/send-meeting-invite`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -302,7 +302,7 @@ export default function CandidateDetailPage() {
 
     setGeneratingRescheduleEmail(true);
     try {
-      const response = await fetch('http://69.62.125.138:5041/api/ai/generate-email', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/ai/generate-email`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -345,7 +345,7 @@ export default function CandidateDetailPage() {
 
     setRescheduling(true);
     try {
-      const response = await fetch(`http://69.62.125.138:5041/api/candidates/${id}/reschedule`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/candidates/${id}/reschedule`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -379,7 +379,7 @@ export default function CandidateDetailPage() {
   const handleGenerateSummary = async () => {
     setGeneratingSummary(true);
     try {
-      const response = await fetch(`http://69.62.125.138:5041/api/ai/${id}/generate-summary`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/ai/${id}/generate-summary`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -404,7 +404,7 @@ export default function CandidateDetailPage() {
     setCvModal(true);
     setLoadingCV(true);
     try {
-      const response = await fetch(`http://69.62.125.138:5041/api/ai/${id}/view-cv`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/ai/${id}/view-cv`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -487,7 +487,7 @@ export default function CandidateDetailPage() {
               {(candidate as any).assessmentGiven && (candidate as any).assessmentLink && (
                 <div className="pt-2">
                   <a 
-                    href={`http://69.62.125.138:5041/uploads/assessments/${(candidate as any).assessmentLink}`}
+                    href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://suzair.duckdns.org'}/uploads/assessments/${(candidate as any).assessmentLink}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn-outline w-full flex items-center justify-center gap-2 text-xs py-1.5"
@@ -682,7 +682,7 @@ export default function CandidateDetailPage() {
                 </button>
               )}
               {candidate.cvPath && (
-                <a href={`http://69.62.125.138:5041/uploads/${candidate.cvPath}`} target="_blank" rel="noreferrer"
+                <a href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://suzair.duckdns.org'}/uploads/${candidate.cvPath}`} target="_blank" rel="noreferrer"
                    className="btn-outline w-full flex items-center justify-center gap-2 text-xs">
                   <FileText size={14} /> Open CV (PDF)
                 </a>

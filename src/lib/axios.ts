@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { keysToCamelCase } from './caseTransform';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://69.62.125.138:5041/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api';
 
 const api = axios.create({
   baseURL: API_URL,

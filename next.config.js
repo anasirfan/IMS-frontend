@@ -5,7 +5,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://69.62.125.138:5041/api/:path*',
+        destination: 'https://suzair.duckdns.org/api/:path*',
       },
     ];
   },

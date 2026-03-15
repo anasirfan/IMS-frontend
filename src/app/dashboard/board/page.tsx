@@ -441,7 +441,7 @@ export default function BoardPage() {
     
     // Fetch scheduled interviews for conflict detection
     try {
-      const response = await fetch('http://69.62.125.138:5041/api/candidates/scheduled', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/candidates/scheduled`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -462,7 +462,7 @@ export default function BoardPage() {
     // Check for time slot conflicts
     const selectedDateTime = new Date(`${scheduleData.date}T${scheduleData.time}:00`);
     try {
-      const response = await fetch('http://69.62.125.138:5041/api/candidates/scheduled', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/candidates/scheduled`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -490,7 +490,7 @@ export default function BoardPage() {
 
     setGeneratingMeet(true);
     try {
-      const response = await fetch('http://69.62.125.138:5041/api/google/create-meet', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/google/create-meet`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -534,7 +534,7 @@ export default function BoardPage() {
 
     setGeneratingEmailTemplate(true);
     try {
-      const response = await fetch('http://69.62.125.138:5041/api/ai/generate-meeting-email', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/ai/generate-meeting-email`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -572,7 +572,7 @@ export default function BoardPage() {
 
     setSendingInvite(true);
     try {
-      const response = await fetch(`http://69.62.125.138:5041/api/candidates/${scheduleModal.candidate.id}/send-meeting-invite`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/candidates/${scheduleModal.candidate.id}/send-meeting-invite`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -607,7 +607,7 @@ export default function BoardPage() {
   const handleGenerateSummary = useCallback(async (candidateId: string) => {
     setGeneratingSummary(candidateId);
     try {
-      const response = await fetch(`http://69.62.125.138:5041/api/ai/${candidateId}/generate-summary`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/ai/${candidateId}/generate-summary`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -632,7 +632,7 @@ export default function BoardPage() {
     setCvModal({ show: true, candidateId });
     setLoadingCV(true);
     try {
-      const response = await fetch(`http://69.62.125.138:5041/api/ai/${candidateId}/view-cv`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/ai/${candidateId}/view-cv`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -696,7 +696,7 @@ export default function BoardPage() {
       const dateTime = `${scheduleData.date}T${scheduleData.time}:00`;
       
       // Generate email
-      const emailResponse = await fetch('http://69.62.125.138:5041/api/ai/generate-email', {
+      const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/ai/generate-email`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -712,7 +712,7 @@ export default function BoardPage() {
       const emailResult = await emailResponse.json();
       
       // Schedule interview
-      const scheduleResponse = await fetch('http://69.62.125.138:5041/api/google/schedule', {
+      const scheduleResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://suzair.duckdns.org/api'}/google/schedule`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
