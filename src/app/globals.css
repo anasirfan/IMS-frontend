@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  * {
+    @apply border-glass-border;
+  }
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-stealth-300 text-gray-200 font-sans antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-emerald text-stealth-300 px-4 py-2 rounded-lg font-medium text-sm
+           hover:bg-emerald-300 transition-all duration-200 shadow-glow-sm hover:shadow-glow
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply px-4 py-2 rounded-lg font-medium text-sm text-gray-400
+           hover:bg-glass-white5 hover:text-gray-200 transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-outline {
+    @apply border border-glass-border text-gray-300 px-4 py-2 rounded-lg font-medium text-sm
+           hover:bg-glass-white5 hover:border-glass-border-hover transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-danger {
+    @apply bg-red-500/10 text-red-400 border border-red-500/20 px-4 py-2 rounded-lg font-medium text-sm
+           hover:bg-red-500/20 transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .input-field {
+    @apply w-full px-3 py-2.5 bg-stealth border border-glass-border rounded-lg text-sm text-eton
+           focus:outline-none focus:ring-1 focus:ring-emerald/30 focus:border-emerald/30
+           placeholder:text-gray-500 transition-all duration-200;
+  }
+  select.input-field, .select-stealth {
+    @apply bg-stealth text-eton border-glass-border;
+  }
+  select.input-field option, .select-stealth option {
+    @apply bg-stealth text-eton;
+  }
+  .glass-card {
+    @apply bg-stealth-card backdrop-blur-md rounded-xl border border-glass-border shadow-glass
+           transition-all duration-300;
+  }
+  .glass-card-hover {
+    @apply glass-card hover:border-glass-border-hover hover:shadow-glass-lg;
+  }
+  .glass-surface {
+    @apply bg-glass-white5 backdrop-blur-sm rounded-lg border border-glass-border;
+  }
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium tracking-wide;
+  }
+  .badge-inbox {
+    @apply badge bg-gray-500/10 text-gray-400 border border-gray-500/20;
+  }
+  .badge-screening {
+    @apply badge bg-blue-500/10 text-blue-400 border border-blue-500/20;
+  }
+  .badge-technical {
+    @apply badge bg-purple-500/10 text-purple-400 border border-purple-500/20;
+  }
+  .badge-final {
+    @apply badge bg-amber-500/10 text-amber-400 border border-amber-500/20;
+  }
+  .badge-hired {
+    @apply badge bg-emerald/10 text-emerald border border-emerald/20;
+  }
+  .badge-rejected {
+    @apply badge bg-red-500/10 text-red-400 border border-red-500/20;
+  }
+  .badge-ai {
+    @apply badge bg-emerald/10 text-emerald border border-emerald/20 shadow-glow-sm;
+  }
+}
+
+@layer utilities {
+  .skeleton {
+    @apply animate-pulse bg-glass-white8 rounded;
+  }
+  .glow-border {
+    @apply border-emerald/20 shadow-glow-sm;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.15);
+}
