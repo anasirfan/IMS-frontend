@@ -499,7 +499,7 @@ export default function CandidateDetailPage() {
               {candidate.interviewer && (
                 <div className="flex items-center gap-2.5 text-sm pt-1 border-t border-glass-border">
                   <User size={14} className="text-emerald/60" />
-                  <span className="text-eton text-xs">Interviewer: {candidate.interviewer.name}</span>
+                  <span className="text-eton text-xs">Interviewer: {String(candidate?.interviewer) || 'Anas'}</span>
                 </div>
               )}
             </div>

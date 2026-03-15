@@ -163,7 +163,7 @@ function KanbanCard({ candidate, index, onMove, onDelete, onSchedule, onGenerate
 
               <div className="flex items-center justify-between text-[10px] text-gray-500">
                 <div className="flex items-center gap-1.5">
-                  {candidate.interviewer && (
+                  {candidate?.interviewer && (
                     <span className="flex items-center gap-1">
                       <User size={9} /> {String(candidate?.interviewer) || 'Anas'}
                     </span>
