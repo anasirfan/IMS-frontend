@@ -165,7 +165,7 @@ function KanbanCard({ candidate, index, onMove, onDelete, onSchedule, onGenerate
                 <div className="flex items-center gap-1.5">
                   {candidate.interviewer && (
                     <span className="flex items-center gap-1">
-                      <User size={9} /> {candidate.interviewer.name.split(' ')[0]}
+                      <User size={9} /> {typeof candidate.interviewer === 'string' ? candidate.interviewer.split('@')[0] : candidate.interviewer.name.split(' ')[0]}
                     </span>
                   )}
                 </div>

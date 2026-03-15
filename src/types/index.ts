@@ -74,7 +74,7 @@ export interface Candidate {
   calendarEventId: string | null;
   meetLink: string | null;
   interviewerId: string | null;
-  interviewer?: { id: string; name: string; email: string } | null;
+  interviewer?: string | { id: string; name: string; email: string } | null;
   createdAt: string;
   updatedAt: string;
 }
