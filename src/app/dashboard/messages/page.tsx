@@ -118,7 +118,7 @@ export default function MessagesPage() {
     }
 
     // Sort by latest message date (most recent first)
-    filtered = [...filtered].sort((a, b) => {
+    filtered.sort((a, b) => {
       const dateA = a.lastMessageDate ? new Date(a.lastMessageDate).getTime() : 0;
       const dateB = b.lastMessageDate ? new Date(b.lastMessageDate).getTime() : 0;
       return dateB - dateA; // Descending order (newest first)
