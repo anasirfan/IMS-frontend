@@ -28,6 +28,7 @@ interface Candidate {
   status: string;
   round_stage: string;
   unreadCount?: number;
+  lastMessageDate?: string;
 }
 
 interface ConversationData {
@@ -115,6 +116,13 @@ export default function MessagesPage() {
         c.email.toLowerCase().includes(query)
       );
     }
+
+    // Sort by latest message date (most recent first)
+    filtered = [...filtered].sort((a, b) => {
+      const dateA = a.lastMessageDate ? new Date(a.lastMessageDate).getTime() : 0;
+      const dateB = b.lastMessageDate ? new Date(b.lastMessageDate).getTime() : 0;
+      return dateB - dateA; // Descending order (newest first)
+    });
 
     return filtered;
   }, [candidates, searchQuery, conversationTab]);
