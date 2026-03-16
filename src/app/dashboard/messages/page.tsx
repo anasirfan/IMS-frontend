@@ -100,6 +100,9 @@ export default function MessagesPage() {
     );
   }, [candidates, searchQuery]);
 
+  
+  const conversation = conversationData;
+  
   // Filter messages based on active tab
   const filteredMessages = useMemo(() => {
     if (!conversation?.messages) return [];
@@ -121,7 +124,6 @@ export default function MessagesPage() {
     return conversation.messages;
   }, [conversation?.messages, activeTab]);
   
-  const conversation = conversationData;
   
   // Get link tags for a candidate's conversation
   const getLinkTags = (candidateId: string) => {
