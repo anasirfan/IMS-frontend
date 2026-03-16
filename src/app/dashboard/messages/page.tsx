@@ -64,7 +64,8 @@ export default function MessagesPage() {
   const [sendingReply, setSendingReply] = useState(false);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'received' | 'sent'>('all');
+  const [conversationTab, setConversationTab] = useState<'all' | 'received' | 'sent' | 'unread'>('all');
+  const [messageFilter, setMessageFilter] = useState<'all' | 'links'>('all');
 
   // Fetch all candidates with messages
   const { data: candidatesData, isLoading: candidatesLoading } = useQuery<Candidate[]>({
@@ -90,39 +91,56 @@ export default function MessagesPage() {
 
   const candidates = candidatesData || [];
 
-  // Filter candidates based on search query
+  // Filter candidates based on search query and conversation tab
   const filteredCandidates = useMemo(() => {
-    if (!searchQuery.trim()) return candidates;
-    const query = searchQuery.toLowerCase();
-    return candidates.filter(c => 
-      c.name.toLowerCase().includes(query) || 
-      c.email.toLowerCase().includes(query)
-    );
-  }, [candidates, searchQuery]);
+    let filtered = candidates;
+
+    // Apply conversation tab filter
+    if (conversationTab === 'received') {
+      // Candidates with received messages
+      filtered = filtered.filter(c => c.unreadCount !== undefined);
+    } else if (conversationTab === 'sent') {
+      // All candidates (we've sent messages to all)
+      filtered = filtered;
+    } else if (conversationTab === 'unread') {
+      // Only candidates with unread messages
+      filtered = filtered.filter(c => (c.unreadCount || 0) > 0);
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(c => 
+        c.name.toLowerCase().includes(query) || 
+        c.email.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [candidates, searchQuery, conversationTab]);
 
   
   const conversation = conversationData;
   
-  // Filter messages based on active tab
+  // Filter messages based on message filter (links vs all)
   const filteredMessages = useMemo(() => {
     if (!conversation?.messages) return [];
     
-    if (activeTab === 'received') {
-      // Messages with links (Vercel, Netlify, Drive)
+    if (messageFilter === 'links') {
+      // Messages with links (Vercel, Netlify, Drive, GitHub, Loom)
       return conversation.messages.filter(msg => {
         const body = msg.body.toLowerCase();
-        return msg.direction === 'RECEIVED' && (
-          body.includes('vercel.app') || 
+        return body.includes('vercel.app') || 
           body.includes('netlify.app') || 
           body.includes('drive.google.com') ||
-          body.includes('docs.google.com')
-        );
+          body.includes('docs.google.com') ||
+          body.includes('github.com') ||
+          body.includes('loom.com') ||
+          body.match(/https?:\/\/[^\s]+/);
       });
-    } else if (activeTab === 'sent') {
-      return conversation.messages.filter(msg => msg.direction === 'SENT');
     }
     return conversation.messages;
-  }, [conversation?.messages, activeTab]);
+  }, [conversation?.messages, messageFilter]);
   
   
   // Get link tags for a candidate's conversation
@@ -172,6 +190,50 @@ export default function MessagesPage() {
             <div>
               <h3 className="text-sm font-semibold text-gray-200">Conversations</h3>
               <p className="text-xs text-gray-500 mt-1">{candidates.length} candidates</p>
+            </div>
+            
+            {/* Conversation Tabs */}
+            <div className="flex gap-1 p-1 bg-glass-white5 rounded-lg">
+              <button
+                onClick={() => setConversationTab('all')}
+                className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
+                  conversationTab === 'all'
+                    ? 'bg-emerald/20 text-emerald'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setConversationTab('received')}
+                className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
+                  conversationTab === 'received'
+                    ? 'bg-emerald/20 text-emerald'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                Received
+              </button>
+              <button
+                onClick={() => setConversationTab('sent')}
+                className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
+                  conversationTab === 'sent'
+                    ? 'bg-emerald/20 text-emerald'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                Sent
+              </button>
+              <button
+                onClick={() => setConversationTab('unread')}
+                className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
+                  conversationTab === 'unread'
+                    ? 'bg-emerald/20 text-emerald'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                Unread
+              </button>
             </div>
             
             {/* Search Input */}
@@ -314,45 +376,36 @@ export default function MessagesPage() {
                   </div>
                 </div>
                 
-                {/* Tabs */}
-                <div className="flex border-t border-glass-border">
+                {/* Message Filter Toggle */}
+                <div className="flex gap-2 px-4 pb-3">
                   <button
-                    onClick={() => setActiveTab('all')}
-                    className={`flex-1 px-4 py-2 text-xs font-medium transition-colors ${
-                      activeTab === 'all'
-                        ? 'text-emerald border-b-2 border-emerald bg-emerald/5'
-                        : 'text-gray-500 hover:text-gray-300 hover:bg-glass-white5'
+                    onClick={() => setMessageFilter('all')}
+                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      messageFilter === 'all'
+                        ? 'bg-emerald/20 text-emerald border border-emerald/30'
+                        : 'bg-glass-white5 text-gray-500 hover:text-gray-300 border border-glass-border'
                     }`}
                   >
-                    All ({conversation.messages.length})
+                    All Messages ({conversation.messages.length})
                   </button>
                   <button
-                    onClick={() => setActiveTab('received')}
-                    className={`flex-1 px-4 py-2 text-xs font-medium transition-colors ${
-                      activeTab === 'received'
-                        ? 'text-emerald border-b-2 border-emerald bg-emerald/5'
-                        : 'text-gray-500 hover:text-gray-300 hover:bg-glass-white5'
+                    onClick={() => setMessageFilter('links')}
+                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      messageFilter === 'links'
+                        ? 'bg-emerald/20 text-emerald border border-emerald/30'
+                        : 'bg-glass-white5 text-gray-500 hover:text-gray-300 border border-glass-border'
                     }`}
                   >
-                    Received with Links ({conversation.messages.filter(m => {
+                    With Links ({conversation.messages.filter(m => {
                       const body = m.body.toLowerCase();
-                      return m.direction === 'RECEIVED' && (
-                        body.includes('vercel.app') || 
+                      return body.includes('vercel.app') || 
                         body.includes('netlify.app') || 
                         body.includes('drive.google.com') ||
-                        body.includes('docs.google.com')
-                      );
+                        body.includes('docs.google.com') ||
+                        body.includes('github.com') ||
+                        body.includes('loom.com') ||
+                        body.match(/https?:\/\/[^\s]+/);
                     }).length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('sent')}
-                    className={`flex-1 px-4 py-2 text-xs font-medium transition-colors ${
-                      activeTab === 'sent'
-                        ? 'text-emerald border-b-2 border-emerald bg-emerald/5'
-                        : 'text-gray-500 hover:text-gray-300 hover:bg-glass-white5'
-                    }`}
-                  >
-                    Sent ({conversation.messages.filter(m => m.direction === 'SENT').length})
                   </button>
                 </div>
               </div>
@@ -363,9 +416,7 @@ export default function MessagesPage() {
                   <div className="text-center py-12 text-gray-500">
                     <Mail size={32} className="mx-auto mb-2 opacity-50" />
                     <p className="text-sm">
-                      {activeTab === 'received' ? 'No received messages with links' : 
-                       activeTab === 'sent' ? 'No sent messages' : 
-                       'No messages in this conversation'}
+                      {messageFilter === 'links' ? 'No messages with links' : 'No messages in this conversation'}
                     </p>
                   </div>
                 ) : (
