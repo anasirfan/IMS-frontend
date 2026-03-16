@@ -354,7 +354,7 @@ export default function BoardPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['board-candidates'],
-    queryFn: () => candidateService.getAll({ limit: 200 }),
+    queryFn: () => candidateService.getAll({ limit: 300 }),
   });
 
   const stageMutation = useMutation({

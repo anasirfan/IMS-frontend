@@ -16,6 +16,7 @@ import {
   FileText,
   Calendar,
   Upload,
+  Settings,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/auth.service';
@@ -31,6 +32,7 @@ const navItems = [
   { href: '/dashboard/bulk-upload', label: 'Bulk Upload', icon: Upload, roles: ['SUPER_ADMIN', 'HR_ADMIN'] },
   { href: '/dashboard/scheduled', label: 'Scheduled', icon: Calendar },
   { href: '/dashboard/messages', label: 'Messages', icon: MessageSquare },
+  { href: '/dashboard/automation', label: 'Automation', icon: Settings, roles: ['SUPER_ADMIN', 'HR_ADMIN'] },
   { href: '/dashboard/archive', label: 'Archive', icon: Archive },
   { href: '/dashboard/logs', label: 'Logs', icon: FileText, roles: ['SUPER_ADMIN', 'HR_ADMIN'] },
   { href: '/dashboard/cron-logs', label: 'Cron Jobs', icon: Clock, roles: ['SUPER_ADMIN', 'HR_ADMIN'] },
