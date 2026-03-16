@@ -11,12 +11,14 @@ import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import type { KeyHighlights } from '@/types';
+import api from '@/lib/axios';
 import {
   ArrowLeft, Star, Archive, Trash2, FileText, Video,
   ClipboardList, Link2, Clock, User, Mail, Phone, Briefcase, Brain, Sparkles, Zap,
-  Calendar, Loader2, ChevronDown, ChevronUp,
+  Calendar, Loader2, ChevronDown, ChevronUp, Settings, RotateCcw, Eye,
 } from 'lucide-react';
 import InterviewQuestionsModal from './interview-questions-modal';
+import AssessmentPreviewModal from '@/components/modals/AssessmentPreviewModal';
 
 export default function CandidateDetailPage() {
   const params = useParams();
@@ -57,6 +59,7 @@ export default function CandidateDetailPage() {
   const [rescheduling, setRescheduling] = useState(false);
   const [rescheduleEmailTemplate, setRescheduleEmailTemplate] = useState({ subject: '', body: '' });
   const [generatingRescheduleEmail, setGeneratingRescheduleEmail] = useState(false);
+  const [showAssessmentPreview, setShowAssessmentPreview] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['candidate', id],
@@ -689,6 +692,59 @@ export default function CandidateDetailPage() {
               )}
               {canEdit && (
                 <>
+                  {/* Assessment Automation Controls */}
+                  {(candidate.status === 'INBOX' || candidate.roundStage === 'INBOX') && (
+                    <div className="space-y-2 pt-2 border-t border-glass-border">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Settings size={12} className="text-emerald" />
+                        <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Automation</span>
+                      </div>
+                      
+                      <button 
+                        onClick={() => setShowAssessmentPreview(true)}
+                        className="btn-primary w-full flex items-center justify-center gap-2 text-xs bg-blue-500 hover:bg-blue-600"
+                      >
+                        <Eye size={14} /> Preview & Test
+                      </button>
+                      
+                      {(candidate as any).assessmentStatus === 'failed' && (
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await api.post(`/automation/retry/${id}`);
+                              toast.success('Assessment retry initiated');
+                              queryClient.invalidateQueries({ queryKey: ['candidate', id] });
+                            } catch (error: any) {
+                              toast.error(error.response?.data?.message || 'Retry failed');
+                            }
+                          }}
+                          className="btn-outline w-full flex items-center justify-center gap-2 text-xs text-orange-400 border-orange-400/30 hover:bg-orange-400/10"
+                        >
+                          <RotateCcw size={14} /> Retry Assessment
+                        </button>
+                      )}
+                      
+                      {(candidate as any).assessmentStatus && (candidate as any).assessmentStatus !== 'sent' && (
+                        <button 
+                          onClick={async () => {
+                            if (confirm('Delete generated assessment?')) {
+                              try {
+                                await api.delete(`/automation/delete/${id}`);
+                                toast.success('Assessment deleted');
+                                queryClient.invalidateQueries({ queryKey: ['candidate', id] });
+                              } catch (error: any) {
+                                toast.error(error.response?.data?.message || 'Delete failed');
+                              }
+                            }
+                          }}
+                          className="btn-outline w-full flex items-center justify-center gap-2 text-xs text-red-400 border-red-400/30 hover:bg-red-400/10"
+                        >
+                          <Trash2 size={14} /> Delete Assessment
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  
                   {candidate.roundStage === 'INBOX' && !candidate.assessmentGiven && (
                     <button onClick={() => generateAssessmentMutation.mutate()} disabled={generateAssessmentMutation.isPending}
                       className="btn-primary w-full flex items-center justify-center gap-2 text-xs">
@@ -1402,6 +1458,19 @@ export default function CandidateDetailPage() {
         onClose={() => setShowInterviewQuestionsModal(false)}
         questions={interviewQuestions}
         candidateName={candidate?.name || ''}
+      />
+
+      {/* Assessment Preview Modal */}
+      <AssessmentPreviewModal
+        isOpen={showAssessmentPreview}
+        onClose={() => setShowAssessmentPreview(false)}
+        candidateId={id}
+        candidateName={candidate?.name || ''}
+        candidateEmail={candidate?.email || ''}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['candidate', id] });
+          queryClient.invalidateQueries({ queryKey: ['board-candidates'] });
+        }}
       />
     </>
   );
