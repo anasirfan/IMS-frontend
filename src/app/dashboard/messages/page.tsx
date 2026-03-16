@@ -1,11 +1,11 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Header from '@/components/layout/Header';
 import { formatDateTime } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { MessageSquare, Send, Mail, User, Clock, ExternalLink, CheckCircle, AlertCircle, Sparkles, Loader2 } from 'lucide-react';
+import { MessageSquare, Send, Mail, User, Clock, ExternalLink, CheckCircle, AlertCircle, Sparkles, Loader2, Search } from 'lucide-react';
 import api from '@/lib/axios';
 import toast from 'react-hot-toast';
 
@@ -63,6 +63,8 @@ export default function MessagesPage() {
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
   const [generatingAI, setGeneratingAI] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'received' | 'sent'>('all');
 
   // Fetch all candidates with messages
   const { data: candidatesData, isLoading: candidatesLoading } = useQuery<Candidate[]>({
@@ -87,6 +89,38 @@ export default function MessagesPage() {
   });
 
   const candidates = candidatesData || [];
+
+  // Filter candidates based on search query
+  const filteredCandidates = useMemo(() => {
+    if (!searchQuery.trim()) return candidates;
+    const query = searchQuery.toLowerCase();
+    return candidates.filter(c => 
+      c.name.toLowerCase().includes(query) || 
+      c.email.toLowerCase().includes(query)
+    );
+  }, [candidates, searchQuery]);
+
+  // Filter messages based on active tab
+  const filteredMessages = useMemo(() => {
+    if (!conversation?.messages) return [];
+    
+    if (activeTab === 'received') {
+      // Messages with links (Vercel, Netlify, Drive)
+      return conversation.messages.filter(msg => {
+        const body = msg.body.toLowerCase();
+        return msg.direction === 'RECEIVED' && (
+          body.includes('vercel.app') || 
+          body.includes('netlify.app') || 
+          body.includes('drive.google.com') ||
+          body.includes('docs.google.com')
+        );
+      });
+    } else if (activeTab === 'sent') {
+      return conversation.messages.filter(msg => msg.direction === 'SENT');
+    }
+    return conversation.messages;
+  }, [conversation?.messages, activeTab]);
+  
   const conversation = conversationData;
   
   // Get link tags for a candidate's conversation
@@ -132,9 +166,23 @@ export default function MessagesPage() {
       <div className="flex h-[calc(100vh-80px)]">
         {/* Candidates List - Left Sidebar */}
         <div className="w-80 border-r border-glass-border bg-stealth-400/50 overflow-y-auto">
-          <div className="p-4 border-b border-glass-border">
-            <h3 className="text-sm font-semibold text-gray-200">Conversations</h3>
-            <p className="text-xs text-gray-500 mt-1">{candidates.length} candidates</p>
+          <div className="p-4 border-b border-glass-border space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-200">Conversations</h3>
+              <p className="text-xs text-gray-500 mt-1">{candidates.length} candidates</p>
+            </div>
+            
+            {/* Search Input */}
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name or email..."
+                className="w-full bg-glass-white5 border border-glass-border rounded-lg pl-9 pr-3 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-emerald/50"
+              />
+            </div>
           </div>
 
           {candidatesLoading ? (
@@ -143,14 +191,14 @@ export default function MessagesPage() {
                 <div key={i} className="skeleton h-16 w-full rounded-lg" />
               ))}
             </div>
-          ) : candidates.length === 0 ? (
+          ) : filteredCandidates.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <MessageSquare size={32} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No conversations yet</p>
+              <p className="text-sm">{searchQuery ? 'No matching conversations' : 'No conversations yet'}</p>
             </div>
           ) : (
             <div className="divide-y divide-glass-border">
-              {candidates.map((candidate) => (
+              {filteredCandidates.map((candidate) => (
                 <motion.button
                   key={candidate.id}
                   initial={{ opacity: 0 }}
@@ -246,32 +294,80 @@ export default function MessagesPage() {
           ) : (
             <>
               {/* Conversation Header */}
-              <div className="p-4 border-b border-glass-border bg-stealth-400/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-emerald/20 flex items-center justify-center">
-                    <User size={18} className="text-emerald" />
+              <div className="border-b border-glass-border bg-stealth-400/50">
+                <div className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-emerald/20 flex items-center justify-center">
+                      <User size={18} className="text-emerald" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-gray-200">{conversation.candidate.name}</h3>
+                      <p className="text-xs text-gray-500">{conversation.candidate.email}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs px-2 py-1 rounded bg-glass-white10 text-gray-400">
+                        {conversation.candidate.round_stage}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-semibold text-gray-200">{conversation.candidate.name}</h3>
-                    <p className="text-xs text-gray-500">{conversation.candidate.email}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs px-2 py-1 rounded bg-glass-white10 text-gray-400">
-                      {conversation.candidate.round_stage}
-                    </span>
-                  </div>
+                </div>
+                
+                {/* Tabs */}
+                <div className="flex border-t border-glass-border">
+                  <button
+                    onClick={() => setActiveTab('all')}
+                    className={`flex-1 px-4 py-2 text-xs font-medium transition-colors ${
+                      activeTab === 'all'
+                        ? 'text-emerald border-b-2 border-emerald bg-emerald/5'
+                        : 'text-gray-500 hover:text-gray-300 hover:bg-glass-white5'
+                    }`}
+                  >
+                    All ({conversation.messages.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('received')}
+                    className={`flex-1 px-4 py-2 text-xs font-medium transition-colors ${
+                      activeTab === 'received'
+                        ? 'text-emerald border-b-2 border-emerald bg-emerald/5'
+                        : 'text-gray-500 hover:text-gray-300 hover:bg-glass-white5'
+                    }`}
+                  >
+                    Received with Links ({conversation.messages.filter(m => {
+                      const body = m.body.toLowerCase();
+                      return m.direction === 'RECEIVED' && (
+                        body.includes('vercel.app') || 
+                        body.includes('netlify.app') || 
+                        body.includes('drive.google.com') ||
+                        body.includes('docs.google.com')
+                      );
+                    }).length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('sent')}
+                    className={`flex-1 px-4 py-2 text-xs font-medium transition-colors ${
+                      activeTab === 'sent'
+                        ? 'text-emerald border-b-2 border-emerald bg-emerald/5'
+                        : 'text-gray-500 hover:text-gray-300 hover:bg-glass-white5'
+                    }`}
+                  >
+                    Sent ({conversation.messages.filter(m => m.direction === 'SENT').length})
+                  </button>
                 </div>
               </div>
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                {conversation.messages.length === 0 ? (
+                {filteredMessages.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <Mail size={32} className="mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No messages in this conversation</p>
+                    <p className="text-sm">
+                      {activeTab === 'received' ? 'No received messages with links' : 
+                       activeTab === 'sent' ? 'No sent messages' : 
+                       'No messages in this conversation'}
+                    </p>
                   </div>
                 ) : (
-                  [...conversation.messages].reverse().map((message, index) => (
+                  [...filteredMessages].reverse().map((message, index) => (
                     <motion.div
                       key={message.id}
                       initial={{ opacity: 0, y: 10 }}
