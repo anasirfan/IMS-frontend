@@ -16,9 +16,9 @@ interface ScheduledInterview {
   position: string;
   interview_date: string;
   interviewDate?: string; // camelCase version from axios interceptor
-  meet_link: string;
+  meetLink: string;
   round_stage: string;
-  cv_path: string | null;
+  cvPath: string | null;
   phone: string | null;
 }
 
@@ -149,7 +149,7 @@ export default function ScheduledInterviewsPage() {
         </div>
 
         {/* Meet Link */}
-        {interview.meet_link && (
+        {interview.meetLink && (
           <div className="mb-3 p-3 bg-emerald/10 border border-emerald/20 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -157,7 +157,7 @@ export default function ScheduledInterviewsPage() {
                 <span className="text-xs font-semibold text-gray-300">Google Meet Link</span>
               </div>
               <button
-                onClick={() => copyToClipboard(interview.meet_link, 'Meet link')}
+                onClick={() => copyToClipboard(interview.meetLink, 'Meet link')}
                 className="p-1 hover:bg-emerald/20 rounded transition-colors"
               >
                 <Copy size={12} className="text-emerald" />
@@ -166,12 +166,12 @@ export default function ScheduledInterviewsPage() {
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                value={interview.meet_link}
+                value={interview.meetLink}
                 readOnly
                 className="flex-1 bg-glass-white5 border border-glass-border rounded px-2 py-1.5 text-xs text-gray-300 font-mono"
               />
               <a
-                href={interview.meet_link}
+                href={interview.meetLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-1.5 bg-emerald hover:bg-emerald/80 rounded transition-colors"
@@ -183,10 +183,10 @@ export default function ScheduledInterviewsPage() {
         )}
 
         {/* CV Link */}
-        {interview.cv_path && (
+        {interview.cvPath && (
           <div className="flex items-center gap-2">
             <a
-              href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://suzair.duckdns.org'}/uploads/${interview.cv_path}`}
+              href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://suzair.duckdns.org'}/uploads/${interview.cvPath}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg transition-colors text-xs font-medium text-blue-400"
