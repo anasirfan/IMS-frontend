@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Header from '@/components/layout/Header';
-import { Settings, Zap, Play, Eye, Loader2, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
+import { Settings, Zap, Play, Eye, Loader2, CheckCircle, XCircle, RotateCcw, CheckSquare } from 'lucide-react';
 import api from '@/lib/axios';
 import toast from 'react-hot-toast';
+import BatchAssessmentModal from '@/components/modals/BatchAssessmentModal';
 
 interface AutomationSettings {
   id: string;
@@ -42,11 +43,35 @@ export default function AutomationPage() {
     },
   });
 
-  // Manual trigger - process all INBOX candidates
-  const handleManualTrigger = async () => {
+  // Batch assessment modal
+  const [showBatchModal, setShowBatchModal] = useState(false);
+
+  // Normalize positions
+  const [normalizing, setNormalizing] = useState(false);
+  const handleNormalizePositions = async () => {
+    setNormalizing(true);
+    try {
+      const response = await api.post('/automation/normalize-positions');
+      const data = response.data?.data || response.data;
+      toast.success(`Normalized ${data.updated} out of ${data.total} candidates`);
+      
+      // Show details if any changes were made
+      if (data.changes && data.changes.length > 0) {
+        console.log('Position changes:', data.changes);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to normalize positions');
+    } finally {
+      setNormalizing(false);
+    }
+  };
+
+  // Manual trigger - process INBOX candidates with optional limit
+  const handleManualTrigger = async (limit: number | null = null) => {
     setProcessing(true);
     try {
-      const response = await api.post('/automation/process-all');
+      const endpoint = limit ? `/automation/process-all?limit=${limit}` : '/automation/process-all';
+      const response = await api.post(endpoint);
       const results = response.data;
       
       toast.success(
@@ -166,25 +191,73 @@ export default function AutomationPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-200">Manual Processing</h2>
-              <p className="text-sm text-gray-500">Process all INBOX candidates immediately</p>
+              <p className="text-sm text-gray-500">Process INBOX candidates in batches</p>
             </div>
+          </div>
+
+          {/* Batch Assessment Button */}
+          <div className="mb-4">
             <button
-              onClick={handleManualTrigger}
-              disabled={processing}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald hover:bg-emerald/80 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
+              onClick={() => setShowBatchModal(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald/10 hover:bg-emerald/20 border border-emerald/30 hover:border-emerald/50 rounded-lg transition-all text-sm font-medium"
             >
-              {processing ? (
+              <CheckSquare size={18} className="text-emerald" />
+              <span className="text-emerald">Select & Send Assessments</span>
+            </button>
+            <p className="text-xs text-gray-500 mt-2">
+              Choose specific candidates to generate and send assessments
+            </p>
+          </div>
+
+          {/* Normalize Positions Button */}
+          <div className="mb-4">
+            <button
+              onClick={handleNormalizePositions}
+              disabled={normalizing}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/50 disabled:bg-gray-600 disabled:cursor-not-allowed disabled:border-gray-700 rounded-lg transition-all text-sm font-medium"
+            >
+              {normalizing ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Processing...
+                  <Loader2 size={18} className="animate-spin text-purple-400" />
+                  <span className="text-purple-300">Normalizing Positions...</span>
                 </>
               ) : (
                 <>
-                  <Play size={16} />
-                  Process All INBOX
+                  <RotateCcw size={18} className="text-purple-400" />
+                  <span className="text-purple-300">Normalize All Positions</span>
                 </>
               )}
             </button>
+            <p className="text-xs text-gray-500 mt-2">
+              Updates all candidate positions to match exact role names (e.g., "Engineer" → "AI Engineer")
+            </p>
+          </div>
+
+          {/* Batch Size Options */}
+          <div className="grid grid-cols-5 gap-3 mb-4">
+            {[
+              { label: 'All', value: null },
+              { label: '5', value: 5 },
+              { label: '10', value: 10 },
+              { label: '15', value: 15 },
+              { label: '20', value: 20 },
+            ].map((option) => (
+              <button
+                key={option.label}
+                onClick={() => handleManualTrigger(option.value)}
+                disabled={processing}
+                className="flex flex-col items-center justify-center gap-2 px-4 py-3 bg-glass-white5 hover:bg-emerald/10 border border-glass-border hover:border-emerald/30 disabled:bg-gray-600 disabled:cursor-not-allowed disabled:border-gray-700 rounded-lg transition-all text-sm font-medium group"
+              >
+                {processing ? (
+                  <Loader2 size={20} className="animate-spin text-gray-400" />
+                ) : (
+                  <Play size={20} className="text-gray-400 group-hover:text-emerald transition-colors" />
+                )}
+                <span className="text-gray-300 group-hover:text-emerald transition-colors">
+                  {option.label}
+                </span>
+              </button>
+            ))}
           </div>
 
           <div className="bg-glass-white5 border border-glass-border rounded-lg p-4">
@@ -281,6 +354,15 @@ export default function AutomationPage() {
           </div>
         </div>
       </div>
+
+      {/* Batch Assessment Modal */}
+      <BatchAssessmentModal
+        isOpen={showBatchModal}
+        onClose={() => setShowBatchModal(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['automation-settings'] });
+        }}
+      />
     </>
   );
 }

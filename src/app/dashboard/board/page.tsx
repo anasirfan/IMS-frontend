@@ -470,12 +470,13 @@ export default function BoardPage() {
       const result = await response.json();
       const scheduledInterviews = result.data || [];
       
-      // Check for conflicts (within 1 hour window)
+      // Check for conflicts - only check start time (all interviews are 30 min)
       const conflict = scheduledInterviews.find((interview: any) => {
         if (interview.id === scheduleModal.candidate?.id) return false; // Skip self
         const interviewTime = new Date(interview.interview_date);
+        // Only conflict if exact same start time (within 1 minute tolerance)
         const timeDiff = Math.abs(selectedDateTime.getTime() - interviewTime.getTime());
-        return timeDiff < 3600000; // 1 hour in milliseconds
+        return timeDiff < 60000; // 1 minute in milliseconds
       });
 
       if (conflict) {

@@ -1088,11 +1088,11 @@ export default function CandidateDetailPage() {
 
       {/* Schedule Interview Modal */}
       {scheduleModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="glass-surface p-6 rounded-xl shadow-2xl border border-glass-border max-w-md w-full mx-4"
+            className="glass-surface p-6 rounded-xl shadow-2xl border border-glass-border max-w-md w-full max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center gap-2 mb-4">
               <Calendar className="text-purple-400" size={20} />

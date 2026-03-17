@@ -46,7 +46,9 @@ export default function AssessmentPreviewModal({
     setLoading(true);
     try {
       const response = await api.post(`/automation/process-preview/${candidateId}`);
-      setPreviewData(response.data);
+      // Extract data from API response wrapper
+      const data = response.data?.data || response.data;
+      setPreviewData(data);
       toast.success('Assessment preview generated!');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to generate preview');
@@ -169,31 +171,41 @@ export default function AssessmentPreviewModal({
               {/* Assessment Tab */}
               {activeTab === 'assessment' && (
                 <div className="space-y-4">
-                  <div className="bg-glass-white5 border border-glass-border rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-gray-200 mb-2">
-                      {previewData.assessmentData.title}
-                    </h3>
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span className="px-2 py-1 bg-emerald/20 text-emerald rounded">
-                        {previewData.assessmentData.difficulty}
-                      </span>
-                      <span>Tech: {previewData.assessmentData.techStack.join(', ')}</span>
+                  {previewData.assessmentData?.title && (
+                    <div className="bg-glass-white5 border border-glass-border rounded-lg p-4">
+                      <h3 className="text-lg font-semibold text-gray-200 mb-2">
+                        {previewData.assessmentData.title}
+                      </h3>
+                      {(previewData.assessmentData.difficulty || previewData.assessmentData.techStack) && (
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          {previewData.assessmentData.difficulty && (
+                            <span className="px-2 py-1 bg-emerald/20 text-emerald rounded">
+                              {previewData.assessmentData.difficulty}
+                            </span>
+                          )}
+                          {previewData.assessmentData.techStack && Array.isArray(previewData.assessmentData.techStack) && (
+                            <span>Tech: {previewData.assessmentData.techStack.join(', ')}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
 
                   <div className="bg-glass-white5 border border-glass-border rounded-lg p-4">
                     <h4 className="text-sm font-semibold text-gray-300 mb-2">Assessment Content:</h4>
                     <div className="prose prose-invert prose-sm max-w-none">
                       <pre className="whitespace-pre-wrap text-xs text-gray-400 font-mono">
-                        {previewData.assessmentData.content}
+                        {previewData.assessmentData?.content || 'No content available'}
                       </pre>
                     </div>
                   </div>
 
-                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-blue-400 mb-2">Unique Strength Identified:</h4>
-                    <p className="text-sm text-gray-300">{previewData.assessmentData.uniqueStrength}</p>
-                  </div>
+                  {previewData.assessmentData?.uniqueStrength && (
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                      <h4 className="text-sm font-semibold text-blue-400 mb-2">Unique Strength Identified:</h4>
+                      <p className="text-sm text-gray-300">{previewData.assessmentData.uniqueStrength}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -202,13 +214,13 @@ export default function AssessmentPreviewModal({
                 <div className="space-y-4">
                   <div className="bg-glass-white5 border border-glass-border rounded-lg p-4">
                     <h4 className="text-sm font-semibold text-gray-300 mb-2">Subject:</h4>
-                    <p className="text-sm text-gray-400">{previewData.emailData.subject}</p>
+                    <p className="text-sm text-gray-400">{previewData.emailData?.subject || 'No subject'}</p>
                   </div>
 
                   <div className="bg-glass-white5 border border-glass-border rounded-lg p-4">
                     <h4 className="text-sm font-semibold text-gray-300 mb-2">Email Body:</h4>
                     <pre className="whitespace-pre-wrap text-sm text-gray-400 font-sans">
-                      {previewData.emailData.body}
+                      {previewData.emailData?.body || 'No email body'}
                     </pre>
                   </div>
 

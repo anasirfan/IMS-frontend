@@ -20,6 +20,7 @@ interface ScheduledInterview {
   round_stage: string;
   cvPath: string | null;
   phone: string | null;
+  interviewer?: string;
 }
 
 export default function ScheduledInterviewsPage() {
@@ -147,6 +148,21 @@ export default function ScheduledInterviewsPage() {
             </div>
           </div>
         </div>
+
+        {/* Interviewer */}
+        {interview.interviewer && (
+          <div className="mb-3 p-3 bg-glass-white5 rounded-lg border border-glass-border">
+            <div className="flex items-center gap-2">
+              <User size={14} className="text-blue-400" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-gray-500 uppercase font-semibold">Interviewer</p>
+                <p className="text-xs text-gray-200 font-medium mt-0.5">
+                  {interview.interviewer}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Meet Link */}
         {interview.meetLink && (
