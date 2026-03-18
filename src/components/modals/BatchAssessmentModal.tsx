@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Loader2, Send, CheckSquare, Square, Eye } from 'lucide-react';
+import { X, Loader2, Send, CheckSquare, Square, Eye, Zap } from 'lucide-react';
 import api from '@/lib/axios';
 import toast from 'react-hot-toast';
 import AssessmentPreviewModal from './AssessmentPreviewModal';
@@ -14,6 +14,16 @@ interface Candidate {
   status: string;
 }
 
+interface GeneratedAssessment {
+  candidateId: string;
+  name: string;
+  assessmentData: any;
+  emailData: any;
+  pdfFileName: string;
+  status: 'success' | 'failed';
+  error?: string;
+}
+
 interface BatchAssessmentModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,8 +34,11 @@ export default function BatchAssessmentModal({ isOpen, onClose, onSuccess }: Bat
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [sending, setSending] = useState(false);
+  const [generatedAssessments, setGeneratedAssessments] = useState<GeneratedAssessment[]>([]);
   const [previewCandidateId, setPreviewCandidateId] = useState<string | null>(null);
+  const [previewData, setPreviewData] = useState<any>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -64,27 +77,69 @@ export default function BatchAssessmentModal({ isOpen, onClose, onSuccess }: Bat
     }
   };
 
-  const handleSendSelected = async () => {
+  const handleProcessAll = async () => {
     if (selectedIds.size === 0) {
       toast.error('Please select at least one candidate');
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const response = await api.post('/automation/process-batch-preview', {
+        candidateIds: Array.from(selectedIds)
+      });
+      
+      const result = response.data?.data || response.data;
+      const generated = result.results || [];
+      
+      setGeneratedAssessments(generated);
+      toast.success(`Generated ${result.processed || 0} assessments. Review and send.`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to generate assessments');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleSendSelected = async () => {
+    const selectedGenerated = generatedAssessments.filter(a => 
+      a.status === 'success' && selectedIds.has(a.candidateId)
+    );
+
+    if (selectedGenerated.length === 0) {
+      toast.error('Please select at least one generated assessment to send');
       return;
     }
 
     setSending(true);
     try {
       const response = await api.post('/automation/process-batch', {
-        candidateIds: Array.from(selectedIds)
+        candidateIds: selectedGenerated.map(a => a.candidateId)
       });
       
       const result = response.data?.data || response.data;
-      toast.success(`Processed ${result.processed || selectedIds.size} candidates successfully`);
+      toast.success(`Sent ${result.sent || 0} assessments successfully`);
       
       onSuccess?.();
       onClose();
+      setGeneratedAssessments([]);
+      setSelectedIds(new Set());
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to send assessments');
     } finally {
       setSending(false);
+    }
+  };
+
+  const handlePreview = (candidateId: string) => {
+    const generated = generatedAssessments.find(a => a.candidateId === candidateId);
+    if (generated && generated.status === 'success') {
+      setPreviewData({
+        assessmentData: generated.assessmentData,
+        emailData: generated.emailData,
+        pdfFileName: generated.pdfFileName
+      });
+      setPreviewCandidateId(candidateId);
     }
   };
 
@@ -99,7 +154,10 @@ export default function BatchAssessmentModal({ isOpen, onClose, onSuccess }: Bat
             <div>
               <h2 className="text-xl font-bold text-gray-100">Batch Assessment Processing</h2>
               <p className="text-sm text-gray-400 mt-1">
-                Select candidates to generate and send assessments
+                {generatedAssessments.length === 0 
+                  ? 'Select candidates and generate assessments'
+                  : 'Review generated assessments and send selected ones'
+                }
               </p>
             </div>
             <button
@@ -173,13 +231,32 @@ export default function BatchAssessmentModal({ isOpen, onClose, onSuccess }: Bat
                         <p className="text-xs text-gray-500 mt-1">{candidate.position}</p>
                       </div>
 
-                      <button
-                        onClick={() => setPreviewCandidateId(candidate.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-glass-white5 hover:bg-glass-white10 border border-glass-border rounded-lg transition-colors text-gray-300"
-                      >
-                        <Eye size={14} />
-                        Preview
-                      </button>
+                      {generatedAssessments.length > 0 ? (
+                        <div className="flex items-center gap-2">
+                          {generatedAssessments.find(a => a.candidateId === candidate.id)?.status === 'success' ? (
+                            <>
+                              <span className="text-xs text-emerald">✓ Generated</span>
+                              <button
+                                onClick={() => handlePreview(candidate.id)}
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-emerald/10 hover:bg-emerald/20 border border-emerald/30 rounded-lg transition-colors text-emerald"
+                              >
+                                <Eye size={14} />
+                                Preview
+                              </button>
+                            </>
+                          ) : generatedAssessments.find(a => a.candidateId === candidate.id)?.status === 'failed' ? (
+                            <span className="text-xs text-red-400">✗ Failed</span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setPreviewCandidateId(candidate.id)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs bg-glass-white5 hover:bg-glass-white10 border border-glass-border rounded-lg transition-colors text-gray-300"
+                        >
+                          <Eye size={14} />
+                          Preview
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -193,28 +270,48 @@ export default function BatchAssessmentModal({ isOpen, onClose, onSuccess }: Bat
                 <div className="flex gap-3">
                   <button
                     onClick={onClose}
-                    disabled={sending}
+                    disabled={sending || processing}
                     className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-gray-100 transition-colors disabled:opacity-50"
                   >
                     Cancel
                   </button>
-                  <button
-                    onClick={handleSendSelected}
-                    disabled={sending || selectedIds.size === 0}
-                    className="flex items-center gap-2 px-6 py-2 bg-emerald hover:bg-emerald/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-sm font-medium text-white transition-colors"
-                  >
-                    {sending ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Send size={16} />
-                        Send Selected
-                      </>
-                    )}
-                  </button>
+                  {generatedAssessments.length === 0 ? (
+                    <button
+                      onClick={handleProcessAll}
+                      disabled={processing || selectedIds.size === 0}
+                      className="flex items-center gap-2 px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-sm font-medium text-white transition-colors"
+                    >
+                      {processing ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Zap size={16} />
+                          Process All
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSendSelected}
+                      disabled={sending || selectedIds.size === 0}
+                      className="flex items-center gap-2 px-6 py-2 bg-emerald hover:bg-emerald/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-sm font-medium text-white transition-colors"
+                    >
+                      {sending ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send size={16} />
+                          Send Selected
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             </>
@@ -226,13 +323,20 @@ export default function BatchAssessmentModal({ isOpen, onClose, onSuccess }: Bat
       {previewCandidateId && (
         <AssessmentPreviewModal
           isOpen={!!previewCandidateId}
-          onClose={() => setPreviewCandidateId(null)}
+          onClose={() => {
+            setPreviewCandidateId(null);
+            setPreviewData(null);
+          }}
           candidateId={previewCandidateId}
           candidateName={candidates.find(c => c.id === previewCandidateId)?.name || ''}
           candidateEmail={candidates.find(c => c.id === previewCandidateId)?.email || ''}
+          preGeneratedData={previewData}
           onSuccess={() => {
             setPreviewCandidateId(null);
-            fetchInboxCandidates();
+            setPreviewData(null);
+            if (generatedAssessments.length === 0) {
+              fetchInboxCandidates();
+            }
           }}
         />
       )}

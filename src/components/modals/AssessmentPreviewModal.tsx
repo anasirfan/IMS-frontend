@@ -12,6 +12,7 @@ interface AssessmentPreviewModalProps {
   candidateName: string;
   candidateEmail: string;
   onSuccess?: () => void;
+  preGeneratedData?: PreviewData | null;
 }
 
 interface PreviewData {
@@ -36,13 +37,20 @@ export default function AssessmentPreviewModal({
   candidateName,
   candidateEmail,
   onSuccess,
+  preGeneratedData,
 }: AssessmentPreviewModalProps) {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [previewData, setPreviewData] = useState<PreviewData | null>(preGeneratedData || null);
   const [activeTab, setActiveTab] = useState<'assessment' | 'email'>('assessment');
 
   const handleGeneratePreview = async () => {
+    // If preGeneratedData is provided, don't generate again
+    if (preGeneratedData) {
+      setPreviewData(preGeneratedData);
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await api.post(`/automation/process-preview/${candidateId}`);
