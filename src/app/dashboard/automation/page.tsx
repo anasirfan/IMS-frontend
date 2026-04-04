@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Header from '@/components/layout/Header';
 import { Settings, Zap, Play, Eye, Loader2, CheckCircle, XCircle, RotateCcw, CheckSquare } from 'lucide-react';
 import api from '@/lib/axios';
 import toast from 'react-hot-toast';
-import BatchAssessmentModal from '@/components/modals/BatchAssessmentModal';
 
 interface AutomationSettings {
   id: string;
@@ -16,6 +16,7 @@ interface AutomationSettings {
 }
 
 export default function AutomationPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [processing, setProcessing] = useState(false);
 
@@ -43,8 +44,6 @@ export default function AutomationPage() {
     },
   });
 
-  // Batch assessment modal
-  const [showBatchModal, setShowBatchModal] = useState(false);
 
   // Normalize positions
   const [normalizing, setNormalizing] = useState(false);
@@ -198,11 +197,11 @@ export default function AutomationPage() {
           {/* Batch Assessment Button */}
           <div className="mb-4">
             <button
-              onClick={() => setShowBatchModal(true)}
+              onClick={() => router.push('/dashboard/automation/batch')}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald/10 hover:bg-emerald/20 border border-emerald/30 hover:border-emerald/50 rounded-lg transition-all text-sm font-medium"
             >
               <CheckSquare size={18} className="text-emerald" />
-              <span className="text-emerald">Select & Send Assessments</span>
+              <span className="text-emerald">Batch Assessment Jobs</span>
             </button>
             <p className="text-xs text-gray-500 mt-2">
               Choose specific candidates to generate and send assessments
@@ -355,14 +354,6 @@ export default function AutomationPage() {
         </div>
       </div>
 
-      {/* Batch Assessment Modal */}
-      <BatchAssessmentModal
-        isOpen={showBatchModal}
-        onClose={() => setShowBatchModal(false)}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['automation-settings'] });
-        }}
-      />
     </>
   );
 }
