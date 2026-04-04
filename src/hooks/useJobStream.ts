@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { keysToCamelCase } from '@/lib/caseTransform';
 import type { BatchJob, JobItem, SSEEventType } from '@/types/automation-jobs';
 
@@ -21,6 +22,8 @@ interface UseJobStreamReturn {
   disconnect: () => void;
 }
 
+class FatalSSEError extends Error {}
+
 export function useJobStream({
   jobId,
   onJobUpdate,
@@ -31,105 +34,136 @@ export function useJobStream({
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const retriesRef = useRef(0);
   const MAX_RETRIES = 10;
 
+  // Store latest callbacks in refs so the SSE loop always sees fresh values
+  const onJobUpdateRef = useRef(onJobUpdate);
+  const onItemUpdateRef = useRef(onItemUpdate);
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onJobUpdateRef.current = onJobUpdate; }, [onJobUpdate]);
+  useEffect(() => { onItemUpdateRef.current = onItemUpdate; }, [onItemUpdate]);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+
   const disconnect = useCallback(() => {
-    if (reconnectTimerRef.current) {
-      clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = null;
-    }
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
     }
     setConnected(false);
     setReconnecting(false);
   }, []);
 
-  const connect = useCallback(() => {
+  function handleSSEEvent(eventType: string, raw: any) {
+    const data = keysToCamelCase(raw);
+
+    switch (eventType) {
+      case 'job_snapshot':
+      case 'job_started':
+      case 'job_progress':
+        if (data.job) onJobUpdateRef.current?.(data.job);
+        if (data.items) {
+          (data.items as JobItem[]).forEach((item) => onItemUpdateRef.current?.(item));
+        }
+        break;
+
+      case 'item_started':
+      case 'item_generated':
+      case 'item_sent':
+      case 'item_failed':
+        if (data.item) onItemUpdateRef.current?.(data.item);
+        if (data.job) onJobUpdateRef.current?.(data.job);
+        break;
+
+      case 'job_completed':
+        if (data.job) {
+          onJobUpdateRef.current?.(data.job);
+          onCompleteRef.current?.(data.job);
+        }
+        break;
+    }
+  }
+
+  const connect = useCallback(async () => {
     if (!jobId || !enabled) return;
 
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    const url = `${API_URL}/automation/jobs/${jobId}/stream${token ? `?token=${token}` : ''}`;
+    const url = `${API_URL}/automation/jobs/${jobId}/stream`;
 
-    const es = new EventSource(url);
-    eventSourceRef.current = es;
+    try {
+      await fetchEventSource(url, {
+        method: 'GET',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        signal: ctrl.signal,
 
-    es.onopen = () => {
-      setConnected(true);
-      setError(null);
-      setReconnecting(false);
-      retriesRef.current = 0;
-    };
-
-    es.onerror = () => {
-      es.close();
-      setConnected(false);
-
-      if (retriesRef.current < MAX_RETRIES) {
-        retriesRef.current += 1;
-        setReconnecting(true);
-        const delay = Math.min(1000 * Math.pow(2, retriesRef.current - 1), 30000);
-        reconnectTimerRef.current = setTimeout(() => {
-          connect();
-        }, delay);
-      } else {
-        setError('Lost connection to job stream. Please refresh.');
-        setReconnecting(false);
-      }
-    };
-
-    const eventTypes: SSEEventType[] = [
-      'job_snapshot',
-      'job_started',
-      'item_started',
-      'item_generated',
-      'item_sent',
-      'item_failed',
-      'job_progress',
-      'job_completed',
-    ];
-
-    eventTypes.forEach((eventType) => {
-      es.addEventListener(eventType, (e: MessageEvent) => {
-        try {
-          const raw = JSON.parse(e.data);
-          const data = keysToCamelCase(raw);
-
-          switch (eventType) {
-            case 'job_snapshot':
-            case 'job_started':
-            case 'job_progress':
-              if (data.job) onJobUpdate?.(data.job);
-              if (data.items) {
-                (data.items as JobItem[]).forEach((item) => onItemUpdate?.(item));
-              }
-              break;
-
-            case 'item_started':
-            case 'item_generated':
-            case 'item_sent':
-            case 'item_failed':
-              if (data.item) onItemUpdate?.(data.item);
-              if (data.job) onJobUpdate?.(data.job);
-              break;
-
-            case 'job_completed':
-              if (data.job) {
-                onJobUpdate?.(data.job);
-                onComplete?.(data.job);
-              }
-              break;
+        async onopen(response) {
+          if (response.ok) {
+            setConnected(true);
+            setError(null);
+            setReconnecting(false);
+            retriesRef.current = 0;
+            return;
           }
-        } catch {
-          // ignore parse errors
-        }
+          if (response.status === 401 || response.status === 403) {
+            throw new FatalSSEError(`Auth failed: ${response.status}`);
+          }
+          throw new Error(`SSE open failed: ${response.status}`);
+        },
+
+        onmessage(ev) {
+          if (!ev.data) return;
+          try {
+            const raw = JSON.parse(ev.data);
+            handleSSEEvent(ev.event || 'job_progress', raw);
+          } catch {
+            // ignore parse errors
+          }
+        },
+
+        onclose() {
+          setConnected(false);
+          // fetchEventSource will retry automatically unless we throw
+        },
+
+        onerror(err) {
+          setConnected(false);
+
+          // Fatal errors — stop retrying
+          if (err instanceof FatalSSEError) {
+            setError(err.message);
+            ctrl.abort();
+            throw err;
+          }
+
+          // Retry with backoff
+          retriesRef.current += 1;
+          if (retriesRef.current > MAX_RETRIES) {
+            setError('Lost connection to job stream. Please refresh.');
+            setReconnecting(false);
+            ctrl.abort();
+            throw err; // stop retrying
+          }
+
+          setReconnecting(true);
+          // Return delay in ms — fetchEventSource waits then retries
+          return Math.min(1000 * Math.pow(2, retriesRef.current - 1), 30000);
+        },
+
+        openWhenHidden: true, // keep streaming even if tab is hidden
       });
-    });
-  }, [jobId, enabled, onJobUpdate, onItemUpdate, onComplete]);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return; // normal cleanup
+      if (!(err instanceof FatalSSEError)) {
+        setError(err.message || 'SSE connection failed');
+      }
+    }
+  }, [jobId, enabled]);
 
   useEffect(() => {
     if (jobId && enabled) {

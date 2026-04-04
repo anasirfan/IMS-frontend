@@ -145,12 +145,14 @@ export default function BatchJobPage() {
         api.get(`/automation/jobs/${jobId}`),
         api.get(`/automation/jobs/${jobId}/items`),
       ]);
-      const recoveredJob: BatchJob = jobRes.data?.data || jobRes.data;
-      const recoveredItems: JobItem[] = itemsRes.data?.data || itemsRes.data || [];
+      const jobRaw = jobRes.data?.data || jobRes.data;
+      const recoveredJob: BatchJob = jobRaw.job || jobRaw;
+      const itemsRaw = itemsRes.data?.data || itemsRes.data;
+      const recoveredItems: JobItem[] = (Array.isArray(itemsRaw) ? itemsRaw : itemsRaw.items || []);
 
       setJob(recoveredJob);
       const map = new Map<string, JobItem>();
-      recoveredItems.forEach((it) => map.set(it.candidateId, it));
+      recoveredItems.forEach((it: any) => map.set(it.candidateId || it.candidate_id, it));
       setItems(map);
       setActiveJobId(jobId);
 
@@ -199,14 +201,54 @@ export default function BatchJobPage() {
       const res = await api.post('/automation/jobs/preview', {
         candidateIds: Array.from(selectedIds),
       });
-      const data = res.data?.data || res.data;
-      const jobId = data.id || data.jobId;
+
+      // Debug: log the full response shape
+      console.log('[BatchJob] Raw res.data:', JSON.stringify(res.data, null, 2).slice(0, 500));
+
+      // The axios interceptor transforms snake_case → camelCase
+      // Response shape: { success, message, data: { job: {...}, items: [...] } }
+      const wrapper = res.data;
+      const inner = wrapper?.data || wrapper;
+      const jobData = inner?.job || inner;
+      const initialItems: any[] = inner?.items || [];
+
+      const jobId = jobData?.id;
+      console.log('[BatchJob] Extracted jobId:', jobId, 'items:', initialItems.length);
+
+      if (!jobId) {
+        toast.error('No job ID returned from server');
+        return;
+      }
+
       setActiveJobId(jobId);
       localStorage.setItem(STORAGE_KEY, jobId);
       setPhase('processing');
-      setItems(new Map());
-      toast.success('Preview job started');
+
+      // Populate initial items from response
+      const map = new Map<string, JobItem>();
+      initialItems.forEach((it: any) => {
+        const cid = it.candidateId || it.candidate_id;
+        if (cid) map.set(cid, it);
+      });
+      setItems(map);
+
+      // Set initial job state
+      setJob({
+        id: jobData.id,
+        mode: jobData.mode || 'preview',
+        status: jobData.status || 'queued',
+        totalItems: jobData.totalItems ?? jobData.total_items ?? initialItems.length,
+        processedItems: jobData.processedItems ?? jobData.processed_items ?? 0,
+        successfulItems: jobData.successfulItems ?? jobData.successful_items ?? 0,
+        failedItems: jobData.failedItems ?? jobData.failed_items ?? 0,
+        skippedItems: jobData.skippedItems ?? jobData.skipped_items ?? 0,
+        createdAt: jobData.createdAt || jobData.created_at || '',
+        updatedAt: jobData.updatedAt || jobData.updated_at || '',
+      });
+
+      toast.success(`Preview job started for ${initialItems.length} candidates`);
     } catch (err: any) {
+      console.error('[BatchJob] startPreviewJob error:', err);
       toast.error(err.response?.data?.message || 'Failed to start preview job');
     } finally {
       setStarting(false);
@@ -226,7 +268,8 @@ export default function BatchJobPage() {
         candidateIds: Array.from(sendSelectedIds),
       });
       const data = res.data?.data || res.data;
-      const sId = data.id || data.jobId;
+      const sendData = data.job || data;
+      const sId = sendData.id || sendData.jobId;
       setSendJobId(sId);
       setPhase('sending');
       toast.success('Send job started');
@@ -235,6 +278,15 @@ export default function BatchJobPage() {
     } finally {
       setSending(false);
     }
+  }
+
+  // ─── stop job (disconnect SSE, move to review) ────────────────
+  function stopJob() {
+    setPhase('review');
+    // Pre-select all ready items for send
+    const ready = itemList.filter((i) => i.status === 'generated').map((i) => i.candidateId || (i as any).candidate_id);
+    setSendSelectedIds(new Set(ready));
+    toast.success('Job stopped. You can review and send what was generated.');
   }
 
   // ─── new batch ───────────────────────────────────────────────
@@ -461,7 +513,16 @@ export default function BatchJobPage() {
                   <p className="text-sm text-gray-300 font-medium">
                     {phase === 'processing' ? 'Generating previews…' : 'Sending assessments…'}
                   </p>
-                  <p className="text-sm text-gray-400">{progress}%</p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-sm text-gray-400">{progress}%</p>
+                    <button
+                      onClick={stopJob}
+                      className="flex items-center gap-1.5 px-3 py-1 text-xs bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 transition-colors"
+                    >
+                      <XCircle size={12} />
+                      Stop
+                    </button>
+                  </div>
                 </div>
                 <div className="w-full h-2 bg-glass-white10 rounded-full overflow-hidden">
                   <div
