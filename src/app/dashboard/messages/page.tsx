@@ -27,7 +27,7 @@ interface Candidate {
   email: string;
   position: string;
   status: string;
-  round_stage: string;
+  roundStage: string;
   unreadCount?: number;
   lastMessageDate?: string;
 }
@@ -70,14 +70,28 @@ export default function MessagesPage() {
   const [readFilter, setReadFilter] = useState<'all' | 'unread'>('all');
   const [messageFilter, setMessageFilter] = useState<'all' | 'links'>('all');
 
-  // Fetch all candidates with messages
+  // Fetch candidates with messages for selected category
   const { data: candidatesData, isLoading: candidatesLoading } = useQuery<Candidate[]>({
-    queryKey: ['candidates-with-messages'],
+    queryKey: ['candidates-with-messages', categoryTab, readFilter],
     queryFn: async () => {
-      const response = await api.get('/messages/candidates');
+      const params = new URLSearchParams();
+      if (categoryTab !== 'ALL') params.set('category', categoryTab);
+      if (readFilter === 'unread') params.set('unread', '1');
+      const url = `/messages/candidates${params.toString() ? '?' + params.toString() : ''}`;
+      const response = await api.get(url);
       return Array.isArray(response.data) ? response.data : response.data.data;
     },
-    refetchInterval: 120000, // 2 minutes
+    refetchInterval: 120000,
+  });
+
+  // Fetch category counts
+  const { data: categoryCountsData } = useQuery<Record<string, { total: number; unread: number }>>({
+    queryKey: ['message-category-counts'],
+    queryFn: async () => {
+      const response = await api.get('/messages/category-counts');
+      return response.data?.data || response.data;
+    },
+    refetchInterval: 120000,
   });
 
   // Fetch conversation for selected candidate
@@ -105,42 +119,23 @@ export default function MessagesPage() {
     { key: 'REJECTED', label: 'Rejected' },
   ];
 
-  // Count per category
+  // Category counts from backend
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, { total: number; unread: number }> = {};
-    categories.forEach(c => { counts[c.key] = { total: 0, unread: 0 }; });
-    candidates.forEach(c => {
-      const stage = (c.round_stage || 'INBOX').toUpperCase();
-      counts['ALL'].total++;
-      if ((c.unreadCount || 0) > 0) counts['ALL'].unread++;
-      if (counts[stage]) {
-        counts[stage].total++;
-        if ((c.unreadCount || 0) > 0) counts[stage].unread++;
-      }
-    });
-    return counts;
-  }, [candidates]);
+    const defaults: Record<string, { total: number; unread: number }> = {};
+    categories.forEach(c => { defaults[c.key] = { total: 0, unread: 0 }; });
+    return { ...defaults, ...(categoryCountsData || {}) };
+  }, [categoryCountsData]);
 
-  // Filter candidates based on category, read filter, and search
+  // Filter candidates based on search (category + unread already filtered by backend)
   const filteredCandidates = useMemo(() => {
     let filtered = candidates;
 
-    // Apply category filter
-    if (categoryTab !== 'ALL') {
-      filtered = filtered.filter(c => (c.round_stage || 'INBOX').toUpperCase() === categoryTab);
-    }
-
-    // Apply read filter
-    if (readFilter === 'unread') {
-      filtered = filtered.filter(c => (c.unreadCount || 0) > 0);
-    }
-
-    // Apply search filter
+    // Apply search filter (client-side)
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+      const q = searchQuery.toLowerCase();
       filtered = filtered.filter(c => 
-        c.name.toLowerCase().includes(query) || 
-        c.email.toLowerCase().includes(query)
+        c.name.toLowerCase().includes(q) || 
+        c.email.toLowerCase().includes(q)
       );
     }
 
@@ -152,7 +147,7 @@ export default function MessagesPage() {
     });
 
     return filtered;
-  }, [candidates, searchQuery, categoryTab, readFilter]);
+  }, [candidates, searchQuery]);
 
   
   const conversation = conversationData;
@@ -203,6 +198,7 @@ export default function MessagesPage() {
             queryClient.invalidateQueries({ queryKey: ['conversation', selectedCandidateId] });
             queryClient.invalidateQueries({ queryKey: ['candidates-with-messages'] });
             queryClient.invalidateQueries({ queryKey: ['unread-messages'] });
+            queryClient.invalidateQueries({ queryKey: ['message-category-counts'] });
           })
           .catch(err => console.error('[Messages] Failed to mark as read:', err));
       }
@@ -339,7 +335,7 @@ export default function MessagesPage() {
                       <p className="text-xs text-gray-500 truncate">{candidate.position}</p>
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-glass-white10 text-gray-400">
-                          {candidate.round_stage}
+                          {candidate.roundStage || 'INBOX'}
                         </span>
                         {selectedCandidateId === candidate.id && (() => {
                           const tags = getLinkTags(candidate.id);
@@ -417,7 +413,7 @@ export default function MessagesPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs px-2 py-1 rounded bg-glass-white10 text-gray-400">
-                        {conversation.candidate.round_stage}
+                        {(conversation.candidate as any).roundStage || (conversation.candidate as any).round_stage || 'INBOX'}
                       </span>
                       <Link
                         href={`/dashboard/candidates/${conversation.candidate.id}`}
@@ -554,7 +550,7 @@ export default function MessagesPage() {
                             const response = await api.post('/ai/generate-reply', {
                               candidateName: conversation.candidate.name,
                               candidateMessage: lastMessage?.body || '',
-                              context: `Position: ${conversation.candidate.position}, Stage: ${conversation.candidate.round_stage}`
+                              context: `Position: ${conversation.candidate.position}, Stage: ${(conversation.candidate as any).roundStage || (conversation.candidate as any).round_stage || 'INBOX'}`
                             });
                             if (response.data.success) {
                               setReplyText(response.data.data.reply);
@@ -603,6 +599,7 @@ export default function MessagesPage() {
                               queryClient.invalidateQueries({ queryKey: ['conversation', selectedCandidateId] });
                               queryClient.invalidateQueries({ queryKey: ['candidates-with-messages'] });
                               queryClient.invalidateQueries({ queryKey: ['unread-messages'] });
+                              queryClient.invalidateQueries({ queryKey: ['message-category-counts'] });
                             }
                           } catch (error) {
                             toast.error('Failed to send reply');
