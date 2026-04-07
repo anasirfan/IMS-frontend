@@ -10,12 +10,12 @@ import api from '@/lib/axios';
 
 interface CronLog {
   id: string;
-  job_name: string;
+  jobName: string;
   status: string;
   duration: number | null;
   message: string | null;
   error: string | null;
-  created_at: string;
+  createdAt: string;
 }
 
 interface CronStatus {
@@ -240,7 +240,7 @@ export default function CronLogsPage() {
                         ) : (
                           <XCircle size={14} className="text-red-400" />
                         )}
-                        <span className="text-sm font-medium text-gray-200">{log.job_name}</span>
+                        <span className="text-sm font-medium text-gray-200">{log.jobName}</span>
                         {log.duration && (
                           <span className="text-xs text-gray-500">
                             <Clock size={10} className="inline mr-1" />
@@ -263,7 +263,7 @@ export default function CronLogsPage() {
                       )}
                     </div>
                     <span className="text-xs text-gray-600 whitespace-nowrap ml-4">
-                      {formatDateTime(log.created_at)}
+                      {formatDateTime(log.createdAt)}
                     </span>
                   </div>
                 </motion.div>
