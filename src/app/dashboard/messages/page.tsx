@@ -5,7 +5,8 @@ import { useState, useEffect, useMemo } from 'react';
 import Header from '@/components/layout/Header';
 import { formatDateTime } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { MessageSquare, Send, Mail, User, Clock, ExternalLink, CheckCircle, AlertCircle, Sparkles, Loader2, Search } from 'lucide-react';
+import { MessageSquare, Send, Mail, User, Clock, ExternalLink, CheckCircle, AlertCircle, Sparkles, Loader2, Search, UserCircle } from 'lucide-react';
+import Link from 'next/link';
 import api from '@/lib/axios';
 import toast from 'react-hot-toast';
 
@@ -65,7 +66,8 @@ export default function MessagesPage() {
   const [sendingReply, setSendingReply] = useState(false);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [conversationTab, setConversationTab] = useState<'all' | 'received' | 'sent' | 'unread'>('all');
+  const [categoryTab, setCategoryTab] = useState<string>('ALL');
+  const [readFilter, setReadFilter] = useState<'all' | 'unread'>('all');
   const [messageFilter, setMessageFilter] = useState<'all' | 'links'>('all');
 
   // Fetch all candidates with messages
@@ -92,19 +94,44 @@ export default function MessagesPage() {
 
   const candidates = candidatesData || [];
 
-  // Filter candidates based on search query and conversation tab
+  const categories = [
+    { key: 'ALL', label: 'All' },
+    { key: 'INBOX', label: 'Inbox' },
+    { key: 'ASSESSMENT', label: 'Assessment' },
+    { key: 'SCHEDULED', label: 'Scheduled' },
+    { key: 'INTERVIEW', label: 'Interview' },
+    { key: 'SHORTLISTED', label: 'Shortlisted' },
+    { key: 'HIRED', label: 'Hired' },
+    { key: 'REJECTED', label: 'Rejected' },
+  ];
+
+  // Count per category
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, { total: number; unread: number }> = {};
+    categories.forEach(c => { counts[c.key] = { total: 0, unread: 0 }; });
+    candidates.forEach(c => {
+      const stage = (c.round_stage || 'INBOX').toUpperCase();
+      counts['ALL'].total++;
+      if ((c.unreadCount || 0) > 0) counts['ALL'].unread++;
+      if (counts[stage]) {
+        counts[stage].total++;
+        if ((c.unreadCount || 0) > 0) counts[stage].unread++;
+      }
+    });
+    return counts;
+  }, [candidates]);
+
+  // Filter candidates based on category, read filter, and search
   const filteredCandidates = useMemo(() => {
     let filtered = candidates;
 
-    // Apply conversation tab filter
-    if (conversationTab === 'received') {
-      // Candidates with received messages
-      filtered = filtered.filter(c => c.unreadCount !== undefined);
-    } else if (conversationTab === 'sent') {
-      // All candidates (we've sent messages to all)
-      filtered = filtered;
-    } else if (conversationTab === 'unread') {
-      // Only candidates with unread messages
+    // Apply category filter
+    if (categoryTab !== 'ALL') {
+      filtered = filtered.filter(c => (c.round_stage || 'INBOX').toUpperCase() === categoryTab);
+    }
+
+    // Apply read filter
+    if (readFilter === 'unread') {
       filtered = filtered.filter(c => (c.unreadCount || 0) > 0);
     }
 
@@ -121,11 +148,11 @@ export default function MessagesPage() {
     filtered.sort((a, b) => {
       const dateA = a.lastMessageDate ? new Date(a.lastMessageDate).getTime() : 0;
       const dateB = b.lastMessageDate ? new Date(b.lastMessageDate).getTime() : 0;
-      return dateB - dateA; // Descending order (newest first)
+      return dateB - dateA;
     });
 
     return filtered;
-  }, [candidates, searchQuery, conversationTab]);
+  }, [candidates, searchQuery, categoryTab, readFilter]);
 
   
   const conversation = conversationData;
@@ -200,12 +227,38 @@ export default function MessagesPage() {
               <p className="text-xs text-gray-500 mt-1">{candidates.length} candidates</p>
             </div>
             
-            {/* Conversation Tabs */}
-            <div className="flex gap-1 p-1 bg-glass-white5 rounded-lg">
+            {/* Category Tabs */}
+            <div className="flex gap-1 flex-wrap">
+              {categories.map(cat => {
+                const count = categoryCounts[cat.key];
+                const isActive = categoryTab === cat.key;
+                return (
+                  <button
+                    key={cat.key}
+                    onClick={() => setCategoryTab(cat.key)}
+                    className={`px-2 py-1 text-[10px] font-medium rounded-lg transition-colors border ${
+                      isActive
+                        ? 'bg-emerald/20 text-emerald border-emerald/30'
+                        : 'text-gray-500 hover:text-gray-300 border-transparent hover:border-glass-border'
+                    }`}
+                  >
+                    {cat.label}
+                    {count && count.total > 0 && (
+                      <span className="ml-1 opacity-70">
+                        {count.total}{count.unread > 0 && <span className="text-emerald"> •{count.unread}</span>}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* All / Unread Toggle */}
+            <div className="flex gap-1 p-0.5 bg-glass-white5 rounded-lg">
               <button
-                onClick={() => setConversationTab('all')}
-                className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
-                  conversationTab === 'all'
+                onClick={() => setReadFilter('all')}
+                className={`flex-1 px-2 py-1 text-[10px] font-medium rounded transition-colors ${
+                  readFilter === 'all'
                     ? 'bg-emerald/20 text-emerald'
                     : 'text-gray-500 hover:text-gray-300'
                 }`}
@@ -213,34 +266,14 @@ export default function MessagesPage() {
                 All
               </button>
               <button
-                onClick={() => setConversationTab('received')}
-                className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
-                  conversationTab === 'received'
+                onClick={() => setReadFilter('unread')}
+                className={`flex-1 px-2 py-1 text-[10px] font-medium rounded transition-colors ${
+                  readFilter === 'unread'
                     ? 'bg-emerald/20 text-emerald'
                     : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
-                Received
-              </button>
-              <button
-                onClick={() => setConversationTab('sent')}
-                className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
-                  conversationTab === 'sent'
-                    ? 'bg-emerald/20 text-emerald'
-                    : 'text-gray-500 hover:text-gray-300'
-                }`}
-              >
-                Sent
-              </button>
-              <button
-                onClick={() => setConversationTab('unread')}
-                className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
-                  conversationTab === 'unread'
-                    ? 'bg-emerald/20 text-emerald'
-                    : 'text-gray-500 hover:text-gray-300'
-                }`}
-              >
-                Unread
+                Unread ({categoryCounts[categoryTab]?.unread || 0})
               </button>
             </div>
             
@@ -283,9 +316,15 @@ export default function MessagesPage() {
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald/20 flex items-center justify-center flex-shrink-0">
-                      <User size={18} className="text-emerald" />
-                    </div>
+                    <Link
+                      href={`/dashboard/candidates/${candidate.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-10 h-10 rounded-full bg-emerald/20 flex items-center justify-center flex-shrink-0 hover:bg-emerald/30 transition-colors group/avatar"
+                      title="View profile"
+                    >
+                      <User size={18} className="text-emerald group-hover/avatar:hidden" />
+                      <UserCircle size={18} className="text-emerald hidden group-hover/avatar:block" />
+                    </Link>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <h4 className="text-sm font-medium text-gray-200 truncate">
@@ -376,10 +415,17 @@ export default function MessagesPage() {
                       <h3 className="text-sm font-semibold text-gray-200">{conversation.candidate.name}</h3>
                       <p className="text-xs text-gray-500">{conversation.candidate.email}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="flex items-center gap-2">
                       <span className="text-xs px-2 py-1 rounded bg-glass-white10 text-gray-400">
                         {conversation.candidate.round_stage}
                       </span>
+                      <Link
+                        href={`/dashboard/candidates/${conversation.candidate.id}`}
+                        className="flex items-center gap-1 px-2.5 py-1 text-xs bg-glass-white5 hover:bg-emerald/10 border border-glass-border hover:border-emerald/30 rounded-lg text-gray-400 hover:text-emerald transition-colors"
+                      >
+                        <UserCircle size={12} />
+                        Profile
+                      </Link>
                     </div>
                   </div>
                 </div>
