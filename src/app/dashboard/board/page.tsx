@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { candidateService } from '@/services/candidate.service';
@@ -11,7 +11,7 @@ import { ROUND_STAGES, STAGE_LABELS, STAGE_COLORS } from '@/types';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Brain, User, Briefcase, Clock, Sparkles, Download, MoreVertical, Calendar, FileText, Loader2, ChevronDown, ChevronUp, Mail, Video, CheckCircle, Copy, Send } from 'lucide-react';
+import { Brain, User, Briefcase, Clock, Sparkles, Download, MoreVertical, Calendar, FileText, Loader2, ChevronDown, ChevronUp, Mail, Video, CheckCircle, Copy, Send, Filter } from 'lucide-react';
 
 function parseHighlights(raw: string | null): KeyHighlights | null {
   if (!raw) return null;
@@ -351,6 +351,7 @@ export default function BoardPage() {
   const [assessmentFile, setAssessmentFile] = useState<File | null>(null);
   const [generatingEmail, setGeneratingEmail] = useState(false);
   const [sendingAssessment, setSendingAssessment] = useState(false);
+  const [positionFilter, setPositionFilter] = useState<string>('ALL');
 
   const { data, isLoading } = useQuery({
     queryKey: ['board-candidates'],
@@ -377,11 +378,23 @@ export default function BoardPage() {
 
   const allCandidates: Candidate[] = data?.data || [];
 
+  // Get unique positions for filter
+  const positions = useMemo(() => {
+    const set = new Set<string>();
+    allCandidates.forEach(c => { if (c.position) set.add(c.position); });
+    return Array.from(set).sort();
+  }, [allCandidates]);
+
+  // Apply position filter
+  const filteredByPosition = positionFilter === 'ALL'
+    ? allCandidates
+    : allCandidates.filter(c => c.position === positionFilter);
+
   const columns: Record<RoundStage, Candidate[]> = {
     INBOX: [], ASSESSMENT: [], SCHEDULED: [], INTERVIEW: [], SHORTLISTED: [], HIRED: [], REJECTED: [],
   };
 
-  allCandidates.forEach((c) => {
+  filteredByPosition.forEach((c) => {
     const stage = (c.roundStage || c.status || 'INBOX') as RoundStage;
     if (columns[stage]) columns[stage].push(c);
     else columns.INBOX.push(c);
@@ -743,12 +756,34 @@ export default function BoardPage() {
   return (
     <>
       <Header title="Pipeline Board" subtitle="Drag candidates between stages">
-        <button
-          onClick={() => { candidateService.exportCsv({}); toast.success('Exporting...'); }}
-          className="btn-ghost flex items-center gap-1.5 text-xs"
-        >
-          <Download size={14} /> Export
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Filter size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+            <select
+              value={positionFilter}
+              onChange={(e) => setPositionFilter(e.target.value)}
+              className={`appearance-none bg-glass-white5 border rounded-lg pl-7 pr-8 py-1.5 text-xs focus:outline-none focus:border-emerald/50 cursor-pointer ${
+                positionFilter !== 'ALL'
+                  ? 'border-emerald/40 text-emerald'
+                  : 'border-glass-border text-gray-400'
+              }`}
+            >
+              <option value="ALL">All Positions ({allCandidates.length})</option>
+              {positions.map(p => (
+                <option key={p} value={p}>
+                  {p} ({allCandidates.filter(c => c.position === p).length})
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          </div>
+          <button
+            onClick={() => { candidateService.exportCsv({}); toast.success('Exporting...'); }}
+            className="btn-ghost flex items-center gap-1.5 text-xs"
+          >
+            <Download size={14} /> Export
+          </button>
+        </div>
       </Header>
 
       <div className="p-4 overflow-x-auto">
