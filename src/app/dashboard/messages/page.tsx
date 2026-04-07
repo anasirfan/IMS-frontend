@@ -70,26 +70,31 @@ export default function MessagesPage() {
   const [readFilter, setReadFilter] = useState<'all' | 'unread'>('all');
   const [messageFilter, setMessageFilter] = useState<'all' | 'links'>('all');
 
-  // Fetch candidates with messages for selected category
+  // Fetch ALL candidates with messages (single query, filter client-side)
   const { data: candidatesData, isLoading: candidatesLoading } = useQuery<Candidate[]>({
-    queryKey: ['candidates-with-messages', categoryTab, readFilter],
+    queryKey: ['candidates-with-messages'],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (categoryTab !== 'ALL') params.set('category', categoryTab);
-      if (readFilter === 'unread') params.set('unread', '1');
-      const url = `/messages/candidates${params.toString() ? '?' + params.toString() : ''}`;
-      const response = await api.get(url);
-      return Array.isArray(response.data) ? response.data : response.data.data;
+      const response = await api.get('/messages/candidates');
+      const data = Array.isArray(response.data) ? response.data : response.data?.data || [];
+      console.log('[Messages] Loaded candidates:', data.length, 'sample:', data[0]);
+      return data;
     },
     refetchInterval: 120000,
   });
 
-  // Fetch category counts
+  // Try to fetch category counts from backend, fallback to client-side
   const { data: categoryCountsData } = useQuery<Record<string, { total: number; unread: number }>>({
     queryKey: ['message-category-counts'],
     queryFn: async () => {
-      const response = await api.get('/messages/category-counts');
-      return response.data?.data || response.data;
+      try {
+        const response = await api.get('/messages/category-counts');
+        const data = response.data?.data || response.data;
+        console.log('[Messages] Category counts from backend:', data);
+        return data;
+      } catch {
+        console.log('[Messages] category-counts endpoint not available, using client-side');
+        return null;
+      }
     },
     refetchInterval: 120000,
   });
@@ -119,35 +124,63 @@ export default function MessagesPage() {
     { key: 'REJECTED', label: 'Rejected' },
   ];
 
-  // Category counts from backend
+  // Compute category counts: use backend data if available, otherwise compute client-side
   const categoryCounts = useMemo(() => {
     const defaults: Record<string, { total: number; unread: number }> = {};
     categories.forEach(c => { defaults[c.key] = { total: 0, unread: 0 }; });
-    return { ...defaults, ...(categoryCountsData || {}) };
-  }, [categoryCountsData]);
 
-  // Filter candidates based on search (category + unread already filtered by backend)
+    if (categoryCountsData && Object.keys(categoryCountsData).length > 0) {
+      return { ...defaults, ...categoryCountsData };
+    }
+
+    // Client-side fallback: compute from candidates list
+    candidates.forEach(c => {
+      const stage = ((c as any).roundStage || (c as any).round_stage || 'INBOX').toUpperCase();
+      defaults['ALL'].total++;
+      if ((c.unreadCount || (c as any).unread_count || 0) > 0) defaults['ALL'].unread++;
+      if (defaults[stage]) {
+        defaults[stage].total++;
+        if ((c.unreadCount || (c as any).unread_count || 0) > 0) defaults[stage].unread++;
+      }
+    });
+    return defaults;
+  }, [categoryCountsData, candidates]);
+
+  // Filter candidates client-side by category, read status, and search
   const filteredCandidates = useMemo(() => {
     let filtered = candidates;
 
-    // Apply search filter (client-side)
+    // Apply category filter
+    if (categoryTab !== 'ALL') {
+      filtered = filtered.filter(c => {
+        const stage = ((c as any).roundStage || (c as any).round_stage || 'INBOX').toUpperCase();
+        return stage === categoryTab;
+      });
+    }
+
+    // Apply read filter
+    if (readFilter === 'unread') {
+      filtered = filtered.filter(c => ((c.unreadCount || (c as any).unread_count || 0) > 0));
+    }
+
+    // Apply search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(c => 
-        c.name.toLowerCase().includes(q) || 
+      filtered = filtered.filter(c =>
+        c.name.toLowerCase().includes(q) ||
         c.email.toLowerCase().includes(q)
       );
     }
 
     // Sort by latest message date (most recent first)
     filtered.sort((a, b) => {
-      const dateA = a.lastMessageDate ? new Date(a.lastMessageDate).getTime() : 0;
-      const dateB = b.lastMessageDate ? new Date(b.lastMessageDate).getTime() : 0;
+      const dateA = (a.lastMessageDate || (a as any).last_message_date) ? new Date(a.lastMessageDate || (a as any).last_message_date).getTime() : 0;
+      const dateB = (b.lastMessageDate || (b as any).last_message_date) ? new Date(b.lastMessageDate || (b as any).last_message_date).getTime() : 0;
       return dateB - dateA;
     });
 
     return filtered;
-  }, [candidates, searchQuery]);
+  }, [candidates, searchQuery, categoryTab, readFilter]);
 
   
   const conversation = conversationData;
