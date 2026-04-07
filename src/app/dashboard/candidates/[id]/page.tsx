@@ -15,7 +15,7 @@ import api from '@/lib/axios';
 import {
   ArrowLeft, Star, Archive, Trash2, FileText, Video,
   ClipboardList, Link2, Clock, User, Mail, Phone, Briefcase, Brain, Sparkles, Zap,
-  Calendar, Loader2, ChevronDown, ChevronUp, Settings, RotateCcw, Eye,
+  Calendar, Loader2, ChevronDown, ChevronUp, Settings, RotateCcw, Eye, Pencil,
 } from 'lucide-react';
 import InterviewQuestionsModal from './interview-questions-modal';
 import AssessmentPreviewModal from '@/components/modals/AssessmentPreviewModal';
@@ -60,6 +60,9 @@ export default function CandidateDetailPage() {
   const [rescheduleEmailTemplate, setRescheduleEmailTemplate] = useState({ subject: '', body: '' });
   const [generatingRescheduleEmail, setGeneratingRescheduleEmail] = useState(false);
   const [showAssessmentPreview, setShowAssessmentPreview] = useState(false);
+  const [editInfoMode, setEditInfoMode] = useState(false);
+  const [editInfoData, setEditInfoData] = useState({ name: '', email: '', phone: '', position: '', remarks: '' });
+  const [savingInfo, setSavingInfo] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['candidate', id],
@@ -766,6 +769,19 @@ export default function CandidateDetailPage() {
                     className="btn-outline w-full flex items-center justify-center gap-2 text-xs">
                     <Star size={14} /> Edit Notes & Rating
                   </button>
+                  <button onClick={() => {
+                    setEditInfoData({
+                      name: candidate.name || '',
+                      email: candidate.email || '',
+                      phone: candidate.phone || '',
+                      position: candidate.position || '',
+                      remarks: candidate.remarks || '',
+                    });
+                    setEditInfoMode(true);
+                  }}
+                    className="btn-outline w-full flex items-center justify-center gap-2 text-xs">
+                    <Pencil size={14} /> Edit Info
+                  </button>
                 </>
               )}
               {canDelete && (
@@ -923,6 +939,93 @@ export default function CandidateDetailPage() {
           <div className="glass-card p-5">
             <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Remarks</h3>
             <p className="text-sm text-gray-300">{candidate.remarks}</p>
+          </div>
+        )}
+
+        {/* Edit Candidate Info */}
+        {editInfoMode && (
+          <div className="glass-card p-5 border border-blue-500/20">
+            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-4">Edit Candidate Info</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1 block">Name</label>
+                <input
+                  type="text"
+                  value={editInfoData.name}
+                  onChange={(e) => setEditInfoData(prev => ({ ...prev, name: e.target.value }))}
+                  className="input-field text-sm"
+                  placeholder="Candidate name"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1 block">Email</label>
+                <input
+                  type="email"
+                  value={editInfoData.email}
+                  onChange={(e) => setEditInfoData(prev => ({ ...prev, email: e.target.value }))}
+                  className="input-field text-sm"
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1 block">Phone</label>
+                <input
+                  type="text"
+                  value={editInfoData.phone}
+                  onChange={(e) => setEditInfoData(prev => ({ ...prev, phone: e.target.value }))}
+                  className="input-field text-sm"
+                  placeholder="+92 300 1234567"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1 block">Position</label>
+                <input
+                  type="text"
+                  value={editInfoData.position}
+                  onChange={(e) => setEditInfoData(prev => ({ ...prev, position: e.target.value }))}
+                  className="input-field text-sm"
+                  placeholder="AI Engineer"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-400 mb-1 block">Remarks</label>
+                <textarea
+                  value={editInfoData.remarks}
+                  onChange={(e) => setEditInfoData(prev => ({ ...prev, remarks: e.target.value }))}
+                  rows={3}
+                  className="input-field text-sm"
+                  placeholder="Any remarks..."
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={async () => {
+                  setSavingInfo(true);
+                  try {
+                    await api.put(`/candidates/${id}`, {
+                      name: editInfoData.name,
+                      email: editInfoData.email,
+                      phone: editInfoData.phone,
+                      position: editInfoData.position,
+                      remarks: editInfoData.remarks,
+                    });
+                    queryClient.invalidateQueries({ queryKey: ['candidate', id] });
+                    toast.success('Candidate info updated');
+                    setEditInfoMode(false);
+                  } catch (err: any) {
+                    toast.error(err.response?.data?.message || 'Failed to update info');
+                  } finally {
+                    setSavingInfo(false);
+                  }
+                }}
+                disabled={savingInfo}
+                className="btn-primary text-xs"
+              >
+                {savingInfo ? 'Saving...' : 'Save Info'}
+              </button>
+              <button onClick={() => setEditInfoMode(false)} className="btn-ghost text-xs">Cancel</button>
+            </div>
           </div>
         )}
 
