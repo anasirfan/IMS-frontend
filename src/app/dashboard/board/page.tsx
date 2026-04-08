@@ -169,11 +169,15 @@ function KanbanCard({ candidate, index, onMove, onDelete, onSchedule, onGenerate
                     </span>
                   )}
                 </div>
-                {candidate.interviewDate && (
+                {candidate.interviewDate ? (
                   <span className="flex items-center gap-1">
-                    <Clock size={9} /> {new Date(candidate.interviewDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    <Calendar size={9} /> {new Date(candidate.interviewDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </span>
-                )}
+                ) : candidate.createdAt ? (
+                  <span className="flex items-center gap-1 text-gray-600">
+                    <Clock size={9} /> {new Date(candidate.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                ) : null}
               </div>
 
               {candidate.rating && (
@@ -352,6 +356,7 @@ export default function BoardPage() {
   const [generatingEmail, setGeneratingEmail] = useState(false);
   const [sendingAssessment, setSendingAssessment] = useState(false);
   const [positionFilter, setPositionFilter] = useState<string>('ALL');
+  const [dateFilter, setDateFilter] = useState<string>('ALL');
 
   const { data, isLoading } = useQuery({
     queryKey: ['board-candidates'],
@@ -385,16 +390,42 @@ export default function BoardPage() {
     return Array.from(set).sort();
   }, [allCandidates]);
 
-  // Apply position filter
-  const filteredByPosition = positionFilter === 'ALL'
-    ? allCandidates
-    : allCandidates.filter(c => c.position === positionFilter);
+  // Date filter helper
+  const getDateCutoff = (filter: string): Date | null => {
+    if (filter === 'ALL') return null;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const days = filter === 'TODAY' ? 0 : filter === '3DAYS' ? 3 : filter === '7DAYS' ? 7 : filter === '30DAYS' ? 30 : 0;
+    now.setDate(now.getDate() - days);
+    return now;
+  };
+
+  // Apply date + position filters
+  const filteredCandidates = useMemo(() => {
+    let filtered = allCandidates;
+
+    // Date filter
+    const cutoff = getDateCutoff(dateFilter);
+    if (cutoff) {
+      filtered = filtered.filter(c => {
+        const d = c.createdAt ? new Date(c.createdAt) : null;
+        return d && d >= cutoff;
+      });
+    }
+
+    // Position filter
+    if (positionFilter !== 'ALL') {
+      filtered = filtered.filter(c => c.position === positionFilter);
+    }
+
+    return filtered;
+  }, [allCandidates, dateFilter, positionFilter]);
 
   const columns: Record<RoundStage, Candidate[]> = {
     INBOX: [], ASSESSMENT: [], SCHEDULED: [], INTERVIEW: [], SHORTLISTED: [], HIRED: [], REJECTED: [],
   };
 
-  filteredByPosition.forEach((c) => {
+  filteredCandidates.forEach((c) => {
     const stage = (c.roundStage || c.status || 'INBOX') as RoundStage;
     if (columns[stage]) columns[stage].push(c);
     else columns.INBOX.push(c);
@@ -758,6 +789,25 @@ export default function BoardPage() {
       <Header title="Pipeline Board" subtitle="Drag candidates between stages">
         <div className="flex items-center gap-2">
           <div className="relative">
+            <Clock size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className={`appearance-none bg-glass-white5 border rounded-lg pl-7 pr-8 py-1.5 text-xs focus:outline-none focus:border-emerald/50 cursor-pointer ${
+                dateFilter !== 'ALL'
+                  ? 'border-blue-400/40 text-blue-400'
+                  : 'border-glass-border text-gray-400'
+              }`}
+            >
+              <option value="ALL">All Time</option>
+              <option value="TODAY">Today</option>
+              <option value="3DAYS">Past 3 Days</option>
+              <option value="7DAYS">Past 7 Days</option>
+              <option value="30DAYS">Past 30 Days</option>
+            </select>
+            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          </div>
+          <div className="relative">
             <Filter size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             <select
               value={positionFilter}
@@ -768,7 +818,7 @@ export default function BoardPage() {
                   : 'border-glass-border text-gray-400'
               }`}
             >
-              <option value="ALL">All Positions ({allCandidates.length})</option>
+              <option value="ALL">All Positions ({filteredCandidates.length})</option>
               {positions.map(p => (
                 <option key={p} value={p}>
                   {p} ({allCandidates.filter(c => c.position === p).length})

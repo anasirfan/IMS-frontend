@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 import {
   Search, Plus, ChevronLeft, ChevronRight, Star, Archive,
-  FileText, ExternalLink, Filter, X, ArrowUpDown, Download,
+  FileText, ExternalLink, Filter, X, ArrowUpDown, Download, Clock,
 } from 'lucide-react';
 
 export default function CandidatesPage() {
@@ -153,6 +153,31 @@ export default function CandidatesPage() {
               className="input-field pl-10 max-w-md"
             />
           </form>
+          <select
+            value={filters.dateFrom ? (
+              filters.dateFrom === new Date().toISOString().split('T')[0] ? 'TODAY' :
+              'CUSTOM'
+            ) : 'ALL'}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === 'ALL') {
+                setFilters(prev => ({ ...prev, dateFrom: undefined, dateTo: undefined, page: 1 }));
+              } else {
+                const now = new Date();
+                now.setHours(0, 0, 0, 0);
+                const days = val === 'TODAY' ? 0 : val === '3DAYS' ? 3 : val === '7DAYS' ? 7 : val === '30DAYS' ? 30 : 0;
+                now.setDate(now.getDate() - days);
+                setFilters(prev => ({ ...prev, dateFrom: now.toISOString().split('T')[0], dateTo: undefined, page: 1 }));
+              }
+            }}
+            className="input-field w-auto text-xs"
+          >
+            <option value="ALL">All Time</option>
+            <option value="TODAY">Today</option>
+            <option value="3DAYS">Past 3 Days</option>
+            <option value="7DAYS">Past 7 Days</option>
+            <option value="30DAYS">Past 30 Days</option>
+          </select>
           <button onClick={() => setShowFilters(!showFilters)} className="btn-outline flex items-center gap-2">
             <Filter size={16} /> Filters
           </button>
@@ -307,6 +332,7 @@ export default function CandidatesPage() {
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">Name</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">Email</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">Position</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">Received</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">Interview</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">Stage</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">AI</th>
@@ -340,6 +366,9 @@ export default function CandidatesPage() {
                       </td>
                       <td className="px-4 py-3 text-gray-400 text-xs">{c.email}</td>
                       <td className="px-4 py-3 text-gray-400 text-xs">{c.position}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">
+                        {c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                      </td>
                       <td className="px-4 py-3 text-gray-500 text-xs">{c.interviewDate ? formatDateTime(c.interviewDate) : '—'}</td>
                       <td className="px-4 py-3">
                         {canEdit ? (
