@@ -11,7 +11,8 @@ import { ROUND_STAGES, STAGE_LABELS, STAGE_COLORS } from '@/types';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Brain, User, Briefcase, Clock, Sparkles, Download, MoreVertical, Calendar, FileText, Loader2, ChevronDown, ChevronUp, Mail, Video, CheckCircle, Copy, Send, Filter } from 'lucide-react';
+import { Brain, User, Briefcase, Clock, Sparkles, Download, MoreVertical, Calendar, FileText, Loader2, ChevronDown, ChevronUp, Mail, Video, CheckCircle, Copy, Send, Filter, ClipboardList } from 'lucide-react';
+import InterviewQuestionsModal from '@/components/modals/InterviewQuestionsModal';
 
 function parseHighlights(raw: string | null): KeyHighlights | null {
   if (!raw) return null;
@@ -53,7 +54,7 @@ function AiScoreBadge({ score }: { score: number | null }) {
   );
 }
 
-function KanbanCard({ candidate, index, onMove, onDelete, onSchedule, onGenerateSummary, onViewCV, onSendAssessment }: { candidate: Candidate; index: number; onMove: (candidateId: string, newStage: RoundStage) => void; onDelete: (candidateId: string) => void; onSchedule: (candidate: Candidate) => void; onGenerateSummary: (candidateId: string) => void; onViewCV: (candidateId: string) => void; onSendAssessment: (candidate: Candidate) => void; }) {
+function KanbanCard({ candidate, index, onMove, onDelete, onSchedule, onGenerateSummary, onViewCV, onSendAssessment, onGenerateQuestions }: { candidate: Candidate; index: number; onMove: (candidateId: string, newStage: RoundStage) => void; onDelete: (candidateId: string) => void; onSchedule: (candidate: Candidate) => void; onGenerateSummary: (candidateId: string) => void; onViewCV: (candidateId: string) => void; onSendAssessment: (candidate: Candidate) => void; onGenerateQuestions: (candidate: Candidate) => void; }) {
   const highlights = parseHighlights(candidate.keyHighlights);
   const summary = parseSummary(candidate.aiSummary || null);
   const [showMenu, setShowMenu] = useState(false);
@@ -246,6 +247,19 @@ function KanbanCard({ candidate, index, onMove, onDelete, onSchedule, onGenerate
                 >
                   <FileText size={10} /> CV
                 </button>
+                {candidate.cvPath && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onGenerateQuestions(candidate);
+                    }}
+                    className="flex-1 text-[10px] px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded transition-colors flex items-center justify-center gap-1"
+                    title="Generate Interview Questions"
+                  >
+                    <ClipboardList size={10} /> Questions
+                  </button>
+                )}
               </div>
 
               {/* AI Summary Section */}
@@ -357,6 +371,9 @@ export default function BoardPage() {
   const [sendingAssessment, setSendingAssessment] = useState(false);
   const [positionFilter, setPositionFilter] = useState<string>('ALL');
   const [dateFilter, setDateFilter] = useState<string>('ALL');
+  const [questionsModal, setQuestionsModal] = useState<{ show: boolean; candidateName: string }>({ show: false, candidateName: '' });
+  const [interviewQuestions, setInterviewQuestions] = useState<any>(null);
+  const [generatingQuestions, setGeneratingQuestions] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['board-candidates'],
@@ -712,6 +729,39 @@ export default function BoardPage() {
     }
   }, []);
 
+  const handleGenerateQuestions = useCallback(async (candidate: Candidate) => {
+    // If already generating for another candidate, skip
+    if (generatingQuestions) return;
+
+    // If candidate already has questions, show them directly
+    if ((candidate as any).interviewQuestions) {
+      try {
+        const existing = JSON.parse((candidate as any).interviewQuestions);
+        setInterviewQuestions(existing);
+        setQuestionsModal({ show: true, candidateName: candidate.name });
+        return;
+      } catch { /* fall through to generate */ }
+    }
+
+    setGeneratingQuestions(candidate.id);
+    toast.loading('Generating interview questions...', { id: 'gen-questions' });
+    try {
+      const response = await candidateService.generateInterviewQuestions(candidate.id);
+      if (response.success) {
+        setInterviewQuestions(response.data);
+        setQuestionsModal({ show: true, candidateName: candidate.name });
+        toast.success('Interview questions generated!', { id: 'gen-questions' });
+        queryClient.invalidateQueries({ queryKey: ['board-candidates'] });
+      } else {
+        toast.error(response.message || 'Failed to generate questions', { id: 'gen-questions' });
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to generate questions', { id: 'gen-questions' });
+    } finally {
+      setGeneratingQuestions(null);
+    }
+  }, [generatingQuestions, queryClient]);
+
   const submitAssessment = useCallback(async () => {
     if (!assessmentModal.candidate) return;
     setSendingAssessment(true);
@@ -892,6 +942,7 @@ export default function BoardPage() {
                             onGenerateSummary={handleGenerateSummary}
                             onViewCV={handleViewCV}
                             onSendAssessment={handleSendAssessment}
+                            onGenerateQuestions={handleGenerateQuestions}
                           />
                         ))}
                         {provided.placeholder}
@@ -1258,6 +1309,14 @@ export default function BoardPage() {
           </div>
         </div>
       )}
+
+      {/* Interview Questions Modal */}
+      <InterviewQuestionsModal
+        show={questionsModal.show}
+        onClose={() => setQuestionsModal({ show: false, candidateName: '' })}
+        questions={interviewQuestions}
+        candidateName={questionsModal.candidateName}
+      />
     </>
   );
 }
