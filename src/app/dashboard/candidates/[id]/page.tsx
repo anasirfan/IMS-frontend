@@ -616,7 +616,7 @@ export default function CandidateDetailPage() {
                   <Mail size={14} /> {generatingEmail ? 'Generating...' : 'Send Assessment'}
                 </button>
               )}
-              {(candidate as any).assessmentGiven && candidate.cvPath && (
+              {candidate.cvPath && (
                 <button 
                   onClick={async () => {
                     // If questions already exist, just show them
