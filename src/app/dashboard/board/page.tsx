@@ -247,7 +247,7 @@ function KanbanCard({ candidate, index, onMove, onDelete, onSchedule, onGenerate
                 >
                   <FileText size={10} /> CV
                 </button>
-                {candidate.cvPath && (
+                {/* {candidate.cvPath && (
                   <button
                     onClick={(e) => {
                       e.preventDefault();
@@ -259,7 +259,7 @@ function KanbanCard({ candidate, index, onMove, onDelete, onSchedule, onGenerate
                   >
                     <ClipboardList size={10} /> Questions
                   </button>
-                )}
+                )} */}
               </div>
 
               {/* AI Summary Section */}
