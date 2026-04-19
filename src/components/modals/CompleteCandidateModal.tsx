@@ -38,6 +38,30 @@ function inKnownPositions(p: string | undefined): boolean {
   return (KNOWN_CANONICAL_POSITIONS as readonly string[]).includes(p);
 }
 
+function isPlaceholderBulkEmail(value: string | undefined): boolean {
+  if (!value) return false;
+  return value.toLowerCase().endsWith(PLACEHOLDER_EMAIL_SUFFIX.toLowerCase());
+}
+
+/** Backend expects email NOT NULL; never omit the field on create. */
+function resolveEmailForCreate(
+  showEmail: boolean,
+  emailInput: string,
+  partialEmail: string | undefined
+): string {
+  const fromInput = showEmail ? emailInput.trim() : '';
+  if (fromInput && EMAIL_RE.test(fromInput)) return fromInput;
+  const fromPartial = (partialEmail ?? '').trim();
+  if (fromPartial && EMAIL_RE.test(fromPartial) && !isPlaceholderBulkEmail(fromPartial)) {
+    return fromPartial;
+  }
+  const id =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  return `pending-${id}@bulk-upload.pending`;
+}
+
 export default function CompleteCandidateModal({
   open,
   fileName,
@@ -85,7 +109,7 @@ export default function CompleteCandidateModal({
     if (!open) return;
     setName(partial.name ?? '');
     const pe = partial.email ?? '';
-    setEmail(pe.endsWith(PLACEHOLDER_EMAIL_SUFFIX) ? '' : pe);
+    setEmail(isPlaceholderBulkEmail(pe) ? '' : pe);
     setPhone(partial.phone ?? '');
     setPosition(inKnownPositions(partial.position) ? partial.position! : '');
     setPositionFilter('');
@@ -162,7 +186,7 @@ export default function CompleteCandidateModal({
 
       const fd = new FormData();
       fd.append('name', finalName);
-      if (finalEmail) fd.append('email', finalEmail);
+      fd.append('email', resolveEmailForCreate(showEmail, email, partial.email));
       if (finalPhone) fd.append('phone', finalPhone);
       fd.append('position', finalPos);
       fd.append('status', 'INBOX');
