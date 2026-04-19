@@ -17,6 +17,7 @@ import {
   Calendar,
   Upload,
   Settings,
+  X,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/auth.service';
@@ -40,19 +41,23 @@ const navItems = [
   { href: '/dashboard/activity', label: 'Activity', icon: Activity, roles: ['SUPER_ADMIN', 'HR_ADMIN'] },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
+
+export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { admin, clearAuth } = useAuthStore();
 
-  // Fetch unread message count
   const { data: unreadData } = useQuery({
     queryKey: ['unread-messages'],
     queryFn: async () => {
       const { data } = await api.get<{ success: boolean; data: { count: number } }>('/messages/unread-count');
       return data.data;
     },
-    refetchInterval: 120000, // 2 minutes // Refresh every 10 seconds
+    refetchInterval: 120000,
   });
 
   const unreadCount = unreadData?.count || 0;
@@ -69,9 +74,9 @@ export default function Sidebar() {
     return admin?.role && item.roles.includes(admin.role);
   });
 
-  return (
-    <aside className="fixed left-0 top-0 h-screen w-56 bg-stealth-400/80 backdrop-blur-xl border-r border-glass-border flex flex-col z-50">
-      <div className="px-5 py-5 border-b border-glass-border">
+  const sidebarContent = (
+    <>
+      <div className="px-5 py-5 border-b border-glass-border flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-emerald/20 flex items-center justify-center">
             <Zap size={16} className="text-emerald" />
@@ -81,6 +86,11 @@ export default function Sidebar() {
             <p className="text-[10px] text-gray-500 font-medium tracking-widest uppercase">IMS</p>
           </div>
         </div>
+        {onMobileClose && (
+          <button onClick={onMobileClose} className="lg:hidden p-1.5 rounded-lg hover:bg-glass-white5 text-gray-400 hover:text-gray-200 transition-colors">
+            <X size={18} />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 py-3 px-2.5 space-y-0.5 overflow-y-auto">
@@ -92,6 +102,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onMobileClose}
               className={cn(
                 'flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-200 relative',
                 isActive
@@ -127,6 +138,25 @@ export default function Sidebar() {
           Sign Out
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-56 bg-stealth-400/80 backdrop-blur-xl border-r border-glass-border flex-col z-50">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onMobileClose} />
+          <aside className="relative h-screen w-64 bg-stealth-400 border-r border-glass-border flex flex-col animate-in slide-in-from-left duration-200">
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

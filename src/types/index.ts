@@ -46,6 +46,15 @@ export interface KeyHighlights {
   risk_flags: string[];
 }
 
+export interface CandidateMessage {
+  id: string;
+  subject?: string;
+  body: string;
+  direction: 'INCOMING' | 'OUTGOING';
+  isRead: boolean;
+  createdAt: string;
+}
+
 export interface Candidate {
   id: string;
   name: string;
@@ -61,6 +70,7 @@ export interface Candidate {
   meetingNotes: string | null;
   assessmentGiven: boolean;
   assessmentLink: string | null;
+  assessmentStatus: string | null;
   completedLink: string | null;
   rating: number | null;
   isArchived: boolean;
@@ -75,6 +85,9 @@ export interface Candidate {
   meetLink: string | null;
   interviewerId: string | null;
   interviewer?: string | { id: string; name: string; email: string } | null;
+  interviewQuestions: string | null;
+  messages?: CandidateMessage[];
+  activityLogs?: ActivityLog[];
   createdAt: string;
   updatedAt: string;
 }
@@ -103,6 +116,40 @@ export interface ApiResponse<T = any> {
   message: string;
   data: T;
   meta?: Pagination;
+  /** Optional machine-readable error code (e.g. bulk upload incomplete candidate) */
+  code?: string;
+}
+
+/** Canonical role labels aligned with backend `position-normalizer` */
+export const KNOWN_CANONICAL_POSITIONS = [
+  'AI Engineer',
+  'Full Stack Developer',
+  'Frontend Developer',
+  'Backend Developer',
+  'Web Developer',
+  'DevOps Engineer',
+  'iOS Developer',
+  'Electrical Engineer',
+  'Electronics Engineer',
+  'Embedded Systems Engineer',
+  '3D Designer',
+  '3D Artist',
+  '3D Specialist',
+] as const;
+
+export type KnownCanonicalPosition = (typeof KNOWN_CANONICAL_POSITIONS)[number];
+
+export type BulkUploadRowStatus =
+  | 'pending'
+  | 'processing'
+  | 'success'
+  | 'needs_input'
+  | 'failed';
+
+/** Payload when bulk upload cannot create a candidate without more fields */
+export interface CandidateIncompletePayload {
+  missing?: string[];
+  partial?: Record<string, unknown>;
 }
 
 export interface Metrics {

@@ -130,62 +130,64 @@ export default function CandidatesPage() {
       <Header title="Candidates" subtitle="Manage your interview pipeline">
         <button
           onClick={() => { candidateService.exportCsv({ ...filters, search: search || undefined }); toast.success('Exporting CSV...'); }}
-          className="btn-outline flex items-center gap-2"
+          className="btn-outline flex items-center gap-2 text-xs md:text-sm"
         >
-          <Download size={16} /> Export CSV
+          <Download size={16} /> <span className="hidden sm:inline">Export CSV</span>
         </button>
         {canEdit && (
-          <button onClick={() => setShowCreate(!showCreate)} className="btn-highlight flex items-center gap-2">
-            <Plus size={16} /> Add Candidate
+          <button onClick={() => setShowCreate(!showCreate)} className="btn-highlight flex items-center gap-2 text-xs md:text-sm">
+            <Plus size={16} /> <span className="hidden sm:inline">Add Candidate</span>
           </button>
         )}
       </Header>
 
-      <div className="p-8">
+      <div className="p-4 md:p-6 lg:p-8">
         {/* Search & Filters Bar */}
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
           <form onSubmit={handleSearch} className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name or email..."
-              className="input-field pl-10 max-w-md"
+              className="input-field pl-10 w-full sm:max-w-md"
             />
           </form>
-          <select
-            value={filters.dateFrom ? (
-              filters.dateFrom === new Date().toISOString().split('T')[0] ? 'TODAY' :
-              'CUSTOM'
-            ) : 'ALL'}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val === 'ALL') {
-                setFilters(prev => ({ ...prev, dateFrom: undefined, dateTo: undefined, page: 1 }));
-              } else {
-                const now = new Date();
-                now.setHours(0, 0, 0, 0);
-                const days = val === 'TODAY' ? 0 : val === '3DAYS' ? 3 : val === '7DAYS' ? 7 : val === '30DAYS' ? 30 : 0;
-                now.setDate(now.getDate() - days);
-                setFilters(prev => ({ ...prev, dateFrom: now.toISOString().split('T')[0], dateTo: undefined, page: 1 }));
-              }
-            }}
-            className="input-field w-auto text-xs"
-          >
-            <option value="ALL">All Time</option>
-            <option value="TODAY">Today</option>
-            <option value="3DAYS">Past 3 Days</option>
-            <option value="7DAYS">Past 7 Days</option>
-            <option value="30DAYS">Past 30 Days</option>
-          </select>
-          <button onClick={() => setShowFilters(!showFilters)} className="btn-outline flex items-center gap-2">
-            <Filter size={16} /> Filters
-          </button>
+          <div className="flex items-center gap-2">
+            <select
+              value={filters.dateFrom ? (
+                filters.dateFrom === new Date().toISOString().split('T')[0] ? 'TODAY' :
+                'CUSTOM'
+              ) : 'ALL'}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'ALL') {
+                  setFilters(prev => ({ ...prev, dateFrom: undefined, dateTo: undefined, page: 1 }));
+                } else {
+                  const now = new Date();
+                  now.setHours(0, 0, 0, 0);
+                  const days = val === 'TODAY' ? 0 : val === '3DAYS' ? 3 : val === '7DAYS' ? 7 : val === '30DAYS' ? 30 : 0;
+                  now.setDate(now.getDate() - days);
+                  setFilters(prev => ({ ...prev, dateFrom: now.toISOString().split('T')[0], dateTo: undefined, page: 1 }));
+                }
+              }}
+              className="input-field w-auto text-xs"
+            >
+              <option value="ALL">All Time</option>
+              <option value="TODAY">Today</option>
+              <option value="3DAYS">Past 3 Days</option>
+              <option value="7DAYS">Past 7 Days</option>
+              <option value="30DAYS">Past 30 Days</option>
+            </select>
+            <button onClick={() => setShowFilters(!showFilters)} className="btn-outline flex items-center gap-2 whitespace-nowrap">
+              <Filter size={16} /> Filters
+            </button>
+          </div>
         </div>
 
         {/* Bulk Actions Toolbar */}
         {selectedIds.size > 0 && (
-          <div className="glass-surface p-4 mb-6 flex items-center justify-between rounded-lg border border-emerald/20">
+          <div className="glass-surface p-3 md:p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-emerald/20">
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-gray-200">{selectedIds.size} selected</span>
               <button
@@ -195,7 +197,7 @@ export default function CandidatesPage() {
                 Clear
               </button>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => setShowBulkMoveModal(true)}
                 className="btn-outline text-xs py-1.5 px-3"
@@ -330,13 +332,13 @@ export default function CandidatesPage() {
                       />
                     </th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">Name</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">Email</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">Position</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">Received</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">Interview</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs hidden md:table-cell">Email</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs hidden lg:table-cell">Position</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs hidden xl:table-cell">Received</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs hidden lg:table-cell">Interview</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">Stage</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">AI</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">CV</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs hidden md:table-cell">AI</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs hidden md:table-cell">CV</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">Actions</th>
                   </tr>
                 </thead>
@@ -364,12 +366,12 @@ export default function CandidatesPage() {
                           {c.name}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-gray-400 text-xs">{c.email}</td>
-                      <td className="px-4 py-3 text-gray-400 text-xs">{c.position}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
+                      <td className="px-4 py-3 text-gray-400 text-xs hidden md:table-cell">{c.email}</td>
+                      <td className="px-4 py-3 text-gray-400 text-xs hidden lg:table-cell">{c.position}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs hidden xl:table-cell">
                         {c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{c.interviewDate ? formatDateTime(c.interviewDate) : '—'}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">{c.interviewDate ? formatDateTime(c.interviewDate) : '—'}</td>
                       <td className="px-4 py-3">
                         {canEdit ? (
                           <select
@@ -389,14 +391,14 @@ export default function CandidatesPage() {
                           <span className={getStatusBadgeClass(c.status)}>{c.status}</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 hidden md:table-cell">
                         {c.aiScore ? (
                           <span className="badge-ai text-[10px]">AI {c.aiScore.toFixed(1)}</span>
                         ) : c.rating ? (
                           <span className="text-yellow-500 text-xs">{getRatingStars(c.rating)}</span>
                         ) : <span className="text-gray-600 text-xs">—</span>}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 hidden md:table-cell">
                         {c.cvPath && (
                           <a href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}/uploads/${c.cvPath}`} target="_blank" rel="noreferrer" className="text-emerald hover:underline">
                             <FileText size={16} />
@@ -423,7 +425,7 @@ export default function CandidatesPage() {
                     </tr>
                   ))}
                   {candidates.length === 0 && (
-                    <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400">No candidates found</td></tr>
+                    <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-400">No candidates found</td></tr>
                   )}
                 </tbody>
               </table>
@@ -431,9 +433,9 @@ export default function CandidatesPage() {
 
             {/* Pagination */}
             {pagination && pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-glass-border">
-                <span className="text-sm text-gray-500">
-                  Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-glass-border">
+                <span className="text-xs sm:text-sm text-gray-500">
+                  Showing {((pagination.page - 1) * pagination.limit) + 1}-{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
                 </span>
                 <div className="flex items-center gap-2">
                   <button

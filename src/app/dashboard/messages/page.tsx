@@ -247,9 +247,9 @@ export default function MessagesPage() {
         </div>
       </Header>
 
-      <div className="flex h-[calc(100vh-80px)]">
+      <div className="flex flex-col md:flex-row h-[calc(100vh-80px)]">
         {/* Candidates List - Left Sidebar */}
-        <div className="w-80 border-r border-glass-border bg-stealth-400/50 overflow-y-auto">
+        <div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-glass-border bg-stealth-400/50 overflow-y-auto max-h-[40vh] md:max-h-none">
           <div className="p-4 border-b border-glass-border space-y-3">
             <div>
               <h3 className="text-sm font-semibold text-gray-200">Conversations</h3>

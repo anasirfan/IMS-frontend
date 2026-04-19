@@ -28,7 +28,7 @@ export default function ActivityPage() {
   return (
     <>
       <Header title="Activity Log" subtitle="Audit trail of all system actions" />
-      <div className="p-8">
+      <div className="p-4 md:p-6 lg:p-8">
         {isLoading ? (
           <div className="glass-card p-6"><TableSkeleton rows={15} /></div>
         ) : (

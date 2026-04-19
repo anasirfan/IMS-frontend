@@ -40,7 +40,7 @@ export default function ArchivePage() {
           <Download size={16} /> Export CSV
         </button>
       </Header>
-      <div className="p-8">
+      <div className="p-4 md:p-6 lg:p-8">
         <div className="mb-6 relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input
@@ -54,8 +54,8 @@ export default function ArchivePage() {
         {isLoading ? (
           <div className="card p-6"><TableSkeleton rows={8} /></div>
         ) : (
-          <div className="card overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="card overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>

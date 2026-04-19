@@ -304,11 +304,11 @@ function KanbanCard({ candidate, index, onMove, onDelete, onSchedule, onGenerate
 
           {/* Delete Confirmation Modal */}
           {showDeleteModal && (
-            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="glass-surface p-6 rounded-xl shadow-2xl border border-glass-border max-w-md w-full mx-4"
+                className="glass-surface p-6 rounded-xl shadow-2xl border border-glass-border max-w-md w-full"
               >
                 <h3 className="text-lg font-semibold text-gray-100 mb-2">Delete Candidate</h3>
                 <p className="text-sm text-gray-400 mb-6">

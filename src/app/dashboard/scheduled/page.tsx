@@ -231,7 +231,7 @@ export default function ScheduledInterviewsPage() {
         </div>
       </Header>
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (

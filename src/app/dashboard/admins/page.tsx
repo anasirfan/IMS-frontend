@@ -50,7 +50,7 @@ export default function AdminsPage() {
         )}
       </Header>
 
-      <div className="p-8">
+      <div className="p-4 md:p-6 lg:p-8">
         {showCreate && isSuperAdmin && (
           <div className="glass-card p-6 mb-6 border-emerald/20 border">
             <h3 className="text-lg font-semibold mb-4">New Admin</h3>

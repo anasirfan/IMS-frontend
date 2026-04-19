@@ -25,6 +25,14 @@ export const candidateService = {
     return data;
   },
 
+  /** Single-file CV bulk pipeline (multipart field `cv`) */
+  bulkUploadCv: async (formData: FormData) => {
+    const { data } = await api.post<ApiResponse<Candidate>>('/candidates/bulk-upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
+
   update: async (id: string, formData: FormData) => {
     const { data } = await api.put<ApiResponse<Candidate>>(`/candidates/${id}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
