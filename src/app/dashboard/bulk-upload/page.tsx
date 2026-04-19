@@ -14,11 +14,22 @@ import {
   AlertCircle,
   Trash2,
   ClipboardPen,
+  Clock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { candidateService } from '@/services/candidate.service';
 import { parseBulkFailurePayload, parseBulkUploadFailure } from '@/lib/bulkUploadErrors';
-import type { BulkUploadRowStatus } from '@/types';
+import type { ApiResponseMeta, BulkUploadRowStatus, Candidate } from '@/types';
+
+const BULK_PLACEHOLDER_EMAIL_SUFFIX = '@bulk-upload.pending';
+
+function pendingFieldsFromBulkSuccess(candidate: Candidate, meta?: ApiResponseMeta): string[] {
+  const fromMeta = (meta?.pendingFields ?? []).map((x) => String(x).toLowerCase());
+  if (fromMeta.length) return Array.from(new Set(fromMeta));
+  const email = (candidate.email ?? '').toLowerCase();
+  if (email.endsWith(BULK_PLACEHOLDER_EMAIL_SUFFIX.toLowerCase())) return ['email'];
+  return [];
+}
 
 interface UploadedFile {
   id: string;
@@ -27,6 +38,8 @@ interface UploadedFile {
   message?: string;
   candidateId?: string;
   missingFields?: string[];
+  /** From 201 meta or inferred placeholder email */
+  pendingFields?: string[];
   partial?: { name?: string; email?: string; phone?: string; position?: string };
 }
 
@@ -119,7 +132,8 @@ export default function BulkUploadPage() {
     }
 
     setUploading(true);
-    let successCount = 0;
+    let fullSuccessCount = 0;
+    let pendingAdditionCount = 0;
     let needsInputCount = 0;
     let failedCount = 0;
 
@@ -144,14 +158,13 @@ export default function BulkUploadPage() {
                   ? {
                       ...f,
                       status: 'needs_input',
-                      message: 'Needs input: add missing details',
+                      message: 'Needs input — click Complete',
                       missingFields: parsed.missing,
                       partial: parsed.partial,
                     }
                   : f
               )
             );
-            setActiveRowId((cur) => cur ?? row.id);
           } else {
             failedCount++;
             setFiles((prev) =>
@@ -170,7 +183,7 @@ export default function BulkUploadPage() {
           continue;
         }
 
-        const candidate = envelope.data;
+        const candidate = envelope.data as Candidate | undefined;
         if (!candidate?.id) {
           failedCount++;
           setFiles((prev) =>
@@ -179,19 +192,43 @@ export default function BulkUploadPage() {
             )
           );
         } else {
-          successCount++;
-          setFiles((prev) =>
-            prev.map((f) =>
-              f.id === row.id
-                ? {
-                    ...f,
-                    status: 'success',
-                    message: `Added: ${candidate.name}`,
-                    candidateId: candidate.id,
-                  }
-                : f
-            )
-          );
+          const pendingList = pendingFieldsFromBulkSuccess(candidate, envelope.meta);
+          if (pendingList.length > 0) {
+            pendingAdditionCount++;
+            setFiles((prev) =>
+              prev.map((f) =>
+                f.id === row.id
+                  ? {
+                      ...f,
+                      status: 'pending_addition',
+                      message: 'Pending addition — click Edit to confirm details',
+                      candidateId: candidate.id,
+                      pendingFields: pendingList,
+                      partial: {
+                        name: candidate.name,
+                        email: candidate.email ?? undefined,
+                        phone: candidate.phone ?? undefined,
+                        position: candidate.position,
+                      },
+                    }
+                  : f
+              )
+            );
+          } else {
+            fullSuccessCount++;
+            setFiles((prev) =>
+              prev.map((f) =>
+                f.id === row.id
+                  ? {
+                      ...f,
+                      status: 'success',
+                      message: `Added: ${candidate.name}`,
+                      candidateId: candidate.id,
+                    }
+                  : f
+              )
+            );
+          }
         }
       } catch (error) {
         const parsed = parseBulkUploadFailure(error);
@@ -203,14 +240,13 @@ export default function BulkUploadPage() {
                 ? {
                     ...f,
                     status: 'needs_input',
-                    message: 'Needs input: add missing details',
+                    message: 'Needs input — click Complete',
                     missingFields: parsed.missing,
                     partial: parsed.partial,
                   }
                 : f
             )
           );
-          setActiveRowId((cur) => cur ?? row.id);
         } else {
           failedCount++;
           setFiles((prev) =>
@@ -230,12 +266,19 @@ export default function BulkUploadPage() {
 
     setUploading(false);
 
-    if (successCount > 0) {
-      toast.success(`${successCount} candidate(s) added successfully!`);
+    if (fullSuccessCount > 0 || pendingAdditionCount > 0) {
       invalidateCandidateQueries();
     }
+    if (fullSuccessCount > 0) {
+      toast.success(`${fullSuccessCount} candidate(s) added successfully!`);
+    }
+    if (pendingAdditionCount > 0) {
+      toast(`${pendingAdditionCount} candidate(s) created — confirm placeholder details when ready`, {
+        icon: 'ℹ️',
+      });
+    }
     if (needsInputCount > 0) {
-      toast(`${needsInputCount} file(s) need more information`, { icon: 'ℹ️' });
+      toast(`${needsInputCount} file(s) need more information — use Complete on each row`, { icon: 'ℹ️' });
     }
     if (failedCount > 0) {
       toast.error(`${failedCount} file(s) failed to process`);
@@ -247,7 +290,7 @@ export default function BulkUploadPage() {
     setActiveRowId(null);
   }, []);
 
-  const openCompleteModal = useCallback((id: string) => {
+  const openEditorModal = useCallback((id: string) => {
     setActiveRowId(id);
   }, []);
 
@@ -259,12 +302,18 @@ export default function BulkUploadPage() {
     setActiveRowId(null);
   }, []);
 
-  const handleCreated = useCallback(
+  const handleRowResolved = useCallback(
     (rowId: string, summary: { name: string; id: string }) => {
       setFiles((prev) =>
         prev.map((f) =>
           f.id === rowId
-            ? { ...f, status: 'success', message: `Added: ${summary.name}`, candidateId: summary.id }
+            ? {
+                ...f,
+                status: 'success',
+                message: `Saved: ${summary.name}`,
+                candidateId: summary.id,
+                pendingFields: undefined,
+              }
             : f
         )
       );
@@ -275,7 +324,8 @@ export default function BulkUploadPage() {
 
   const pendingCount = files.filter((f) => f.status === 'pending').length;
   const processingCount = files.filter((f) => f.status === 'processing').length;
-  const successCount = files.filter((f) => f.status === 'success').length;
+  const fullSuccessCount = files.filter((f) => f.status === 'success').length;
+  const pendingAdditionCount = files.filter((f) => f.status === 'pending_addition').length;
   const needsInputCount = files.filter((f) => f.status === 'needs_input').length;
   const failedCount = files.filter((f) => f.status === 'failed').length;
 
@@ -327,7 +377,7 @@ export default function BulkUploadPage() {
         </div>
 
         {files.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mt-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mt-6">
             <div className="glass-surface p-4 rounded-lg border border-glass-border">
               <div className="flex items-center gap-2 mb-1">
                 <FileText size={14} className="text-gray-400" />
@@ -349,7 +399,15 @@ export default function BulkUploadPage() {
                 <CheckCircle size={14} className="text-emerald" />
                 <span className="text-xs text-emerald">Success</span>
               </div>
-              <p className="text-2xl font-bold text-emerald">{successCount}</p>
+              <p className="text-2xl font-bold text-emerald">{fullSuccessCount}</p>
+            </div>
+
+            <div className="glass-surface p-4 rounded-lg border border-cyan-500/30">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock size={14} className="text-cyan-400" />
+                <span className="text-xs text-cyan-400">Pending addition</span>
+              </div>
+              <p className="text-2xl font-bold text-cyan-400">{pendingAdditionCount}</p>
             </div>
 
             <div className="glass-surface p-4 rounded-lg border border-amber-500/30">
@@ -360,7 +418,7 @@ export default function BulkUploadPage() {
               <p className="text-2xl font-bold text-amber-400">{needsInputCount}</p>
             </div>
 
-            <div className="glass-surface p-4 rounded-lg border border-red-500/30 col-span-2 sm:col-span-1">
+            <div className="glass-surface p-4 rounded-lg border border-red-500/30 col-span-2 sm:col-span-1 lg:col-span-1">
               <div className="flex items-center gap-2 mb-1">
                 <XCircle size={14} className="text-red-400" />
                 <span className="text-xs text-red-400">Failed</span>
@@ -418,6 +476,9 @@ export default function BulkUploadPage() {
                         <Loader2 size={20} className="text-blue-400 animate-spin" />
                       )}
                       {fileData.status === 'success' && <CheckCircle size={20} className="text-emerald" />}
+                      {fileData.status === 'pending_addition' && (
+                        <Clock size={20} className="text-cyan-400" />
+                      )}
                       {fileData.status === 'needs_input' && (
                         <AlertCircle size={20} className="text-amber-400" />
                       )}
@@ -435,11 +496,13 @@ export default function BulkUploadPage() {
                               className={`text-xs ${
                                 fileData.status === 'success'
                                   ? 'text-emerald'
-                                  : fileData.status === 'failed'
-                                    ? 'text-red-400'
-                                    : fileData.status === 'needs_input'
-                                      ? 'text-amber-400'
-                                      : 'text-gray-400'
+                                  : fileData.status === 'pending_addition'
+                                    ? 'text-cyan-400'
+                                    : fileData.status === 'failed'
+                                      ? 'text-red-400'
+                                      : fileData.status === 'needs_input'
+                                        ? 'text-amber-400'
+                                        : 'text-gray-400'
                               }`}
                             >
                               {fileData.message}
@@ -453,11 +516,21 @@ export default function BulkUploadPage() {
                       {fileData.status === 'needs_input' && (
                         <button
                           type="button"
-                          onClick={() => openCompleteModal(fileData.id)}
+                          onClick={() => openEditorModal(fileData.id)}
                           className="px-2 py-1.5 text-xs rounded-lg border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 flex items-center gap-1"
                         >
                           <ClipboardPen size={14} />
                           Complete
+                        </button>
+                      )}
+                      {fileData.status === 'pending_addition' && (
+                        <button
+                          type="button"
+                          onClick={() => openEditorModal(fileData.id)}
+                          className="px-2 py-1.5 text-xs rounded-lg border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10 flex items-center gap-1"
+                        >
+                          <ClipboardPen size={14} />
+                          Edit
                         </button>
                       )}
                       {fileData.status === 'pending' && !uploading && (
@@ -484,27 +557,30 @@ export default function BulkUploadPage() {
             <div>
               <h4 className="text-sm font-semibold text-blue-400 mb-1">How it works</h4>
               <ul className="text-xs text-gray-400 space-y-1">
-                <li>• Upload multiple PDF CVs at once (up to 50 files)</li>
-                <li>• Each file is processed independently; one failure does not block the rest</li>
-                <li>• If the role cannot be inferred, you will see Needs input — open Complete to pick a position</li>
-                <li>• New candidates start in INBOX; you can move them through the pipeline afterward</li>
-                <li>• Processing takes roughly a few seconds per CV</li>
+                <li>• Only rows in Pending are processed; existing results stay as they are</li>
+                <li>• Each file runs independently; one failure does not block the rest</li>
+                <li>• Pending addition means the candidate exists — use Edit when you want to replace placeholders</li>
+                <li>• Needs input means the CV could not be created — use Complete and fill only what is asked</li>
+                <li>• New candidates start in INBOX unless your workflow changes that later</li>
               </ul>
             </div>
           </div>
         </div>
       </div>
 
-      {activeRow && activeRow.status === 'needs_input' && (
+      {activeRow && (activeRow.status === 'needs_input' || activeRow.status === 'pending_addition') && (
         <CompleteCandidateModal
           open={!!activeRowId}
           fileName={activeRow.file.name}
-          missingFields={activeRow.missingFields ?? ['position']}
+          variant={activeRow.status === 'pending_addition' ? 'update' : 'create'}
+          candidateId={activeRow.candidateId}
+          missingFields={activeRow.missingFields ?? []}
+          pendingFields={activeRow.pendingFields ?? []}
           partial={activeRow.partial ?? {}}
           file={activeRow.file}
           onClose={handleModalClose}
           onSkip={handleModalSkip}
-          onCreated={(summary) => handleCreated(activeRow.id, summary)}
+          onSuccess={(summary) => handleRowResolved(activeRow.id, summary)}
         />
       )}
     </>

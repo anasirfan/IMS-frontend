@@ -7,7 +7,7 @@ import Header from '@/components/layout/Header';
 import { TableSkeleton } from '@/components/ui/LoadingSkeleton';
 import { formatDateTime, getStatusBadgeClass, getRatingStars } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
-import type { Candidate, CandidateFilters } from '@/types';
+import type { Candidate, CandidateFilters, Pagination } from '@/types';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import {
@@ -118,7 +118,20 @@ export default function CandidatesPage() {
   };
 
   const candidates: Candidate[] = data?.data || [];
-  const pagination = data?.meta;
+  const rawMeta = data?.meta;
+  const pagination: Pagination | undefined =
+    rawMeta &&
+    typeof rawMeta.page === 'number' &&
+    typeof rawMeta.limit === 'number' &&
+    typeof rawMeta.total === 'number' &&
+    typeof rawMeta.totalPages === 'number'
+      ? {
+          page: rawMeta.page,
+          limit: rawMeta.limit,
+          total: rawMeta.total,
+          totalPages: rawMeta.totalPages,
+        }
+      : undefined;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

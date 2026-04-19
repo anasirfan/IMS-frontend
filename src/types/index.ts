@@ -111,11 +111,19 @@ export interface Pagination {
   totalPages: number;
 }
 
+/**
+ * List endpoints use full pagination; bulk-upload success may send only `pendingFields`.
+ * Narrow with `page` / `totalPages` when rendering pagination.
+ */
+export type ApiResponseMeta = Partial<Pagination> & {
+  pendingFields?: string[];
+};
+
 export interface ApiResponse<T = any> {
   success: boolean;
   message: string;
   data: T;
-  meta?: Pagination;
+  meta?: ApiResponseMeta;
   /** Optional machine-readable error code (e.g. bulk upload incomplete candidate) */
   code?: string;
 }
@@ -143,6 +151,8 @@ export type BulkUploadRowStatus =
   | 'pending'
   | 'processing'
   | 'success'
+  | /** Candidate created; replace placeholder values (e.g. email) when convenient */
+  'pending_addition'
   | 'needs_input'
   | 'failed';
 
