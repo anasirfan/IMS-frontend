@@ -15,8 +15,21 @@ import { Brain, User, Briefcase, Clock, Sparkles, Download, MoreVertical, Calend
 import InterviewQuestionsModal from '@/components/modals/InterviewQuestionsModal';
 
 function parseHighlights(raw: string | null): KeyHighlights | null {
-  if (!raw) return null;
-  try { return JSON.parse(raw); } catch { return null; }
+  if (!raw || typeof raw !== 'string') return null;
+  try {
+    const o = JSON.parse(raw) as Partial<KeyHighlights> | null;
+    if (!o || typeof o !== 'object') return null;
+    return {
+      top_skills: Array.isArray(o.top_skills) ? o.top_skills.map(String) : [],
+      years_of_experience: typeof o.years_of_experience === 'number' ? o.years_of_experience : 0,
+      last_company: typeof o.last_company === 'string' ? o.last_company : '',
+      education_summary: typeof o.education_summary === 'string' ? o.education_summary : '',
+      seniority_level: typeof o.seniority_level === 'string' ? o.seniority_level : '',
+      risk_flags: Array.isArray(o.risk_flags) ? o.risk_flags.map(String) : [],
+    };
+  } catch {
+    return null;
+  }
 }
 
 interface AISummary {
@@ -39,8 +52,38 @@ interface AISummary {
 }
 
 function parseSummary(raw: string | null): AISummary | null {
-  if (!raw) return null;
-  try { return JSON.parse(raw); } catch { return null; }
+  if (!raw || typeof raw !== 'string') return null;
+  try {
+    const o = JSON.parse(raw) as Partial<AISummary> | null;
+    if (!o || typeof o !== 'object') return null;
+    const rolesRaw = Array.isArray(o.suggested_roles) ? o.suggested_roles : [];
+    const suggested_roles = rolesRaw
+      .filter((x) => !!x && typeof x === 'object')
+      .map((x) => {
+        const r = x as Record<string, unknown>;
+        return {
+          role: typeof r.role === 'string' ? r.role : String(r.role ?? ''),
+          fit_score: typeof r.fit_score === 'number' ? r.fit_score : Number(r.fit_score) || 0,
+          reasoning: typeof r.reasoning === 'string' ? r.reasoning : String(r.reasoning ?? ''),
+        };
+      });
+    return {
+      overview: typeof o.overview === 'string' ? o.overview : '',
+      strengths: Array.isArray(o.strengths) ? o.strengths.map(String) : [],
+      weaknesses: Array.isArray(o.weaknesses) ? o.weaknesses.map(String) : [],
+      top_skills: Array.isArray(o.top_skills) ? o.top_skills.map(String) : [],
+      years_of_experience: typeof o.years_of_experience === 'number' ? o.years_of_experience : Number(o.years_of_experience) || 0,
+      education: typeof o.education === 'string' ? o.education : '',
+      last_company: typeof o.last_company === 'string' ? o.last_company : '',
+      seniority_level: typeof o.seniority_level === 'string' ? o.seniority_level : '',
+      suggested_roles,
+      overall_assessment: typeof o.overall_assessment === 'string' ? o.overall_assessment : '',
+      interview_focus_areas: Array.isArray(o.interview_focus_areas) ? o.interview_focus_areas.map(String) : [],
+      red_flags: Array.isArray(o.red_flags) ? o.red_flags.map(String) : [],
+    };
+  } catch {
+    return null;
+  }
 }
 
 function AiScoreBadge({ score }: { score: number | null }) {
@@ -147,9 +190,9 @@ function KanbanCard({ candidate, index, onMove, onDelete, onSchedule, onGenerate
                 </div>
               </div>
 
-              {highlights && (
+              {highlights && (highlights.top_skills?.length ?? 0) > 0 && (
                 <div className="flex flex-wrap gap-1 mb-2">
-                  {highlights.top_skills.slice(0, 3).map((s) => (
+                  {(highlights.top_skills ?? []).slice(0, 3).map((s) => (
                     <span key={s} className="text-[9px] px-1.5 py-0.5 rounded bg-glass-white5 text-gray-400 border border-glass-border">
                       {s}
                     </span>
@@ -280,11 +323,13 @@ function KanbanCard({ candidate, index, onMove, onDelete, onSchedule, onGenerate
                   </button>
                   {showSummary && (
                     <div className="mt-2 space-y-2 text-[10px]">
-                      <p className="text-gray-400 leading-relaxed">{summary.overview}</p>
-                      {summary.suggested_roles.length > 0 && (
+                      {summary.overview ? (
+                        <p className="text-gray-400 leading-relaxed">{summary.overview}</p>
+                      ) : null}
+                      {(summary.suggested_roles?.length ?? 0) > 0 && (
                         <div>
                           <p className="text-emerald font-semibold mb-1">Suggested Roles:</p>
-                          {summary.suggested_roles.slice(0, 2).map((role, i) => (
+                          {(summary.suggested_roles ?? []).slice(0, 2).map((role, i) => (
                             <div key={i} className="mb-1 p-1.5 bg-glass-white5 rounded">
                               <div className="flex items-center justify-between">
                                 <span className="font-medium text-gray-200">{role.role}</span>
@@ -375,10 +420,18 @@ export default function BoardPage() {
   const [interviewQuestions, setInterviewQuestions] = useState<any>(null);
   const [generatingQuestions, setGeneratingQuestions] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['board-candidates'],
     queryFn: () => candidateService.getAll({ limit: 10000 }),
+    retry: 1,
   });
+
+  const loadErrorMessage =
+    isError && error && typeof error === 'object' && 'response' in error
+      ? String((error as { response?: { data?: { message?: string } } }).response?.data?.message || '')
+      : isError && error instanceof Error
+        ? error.message
+        : '';
 
   const stageMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
@@ -895,6 +948,16 @@ export default function BoardPage() {
                 {[1, 2, 3].map((i) => <div key={i} className="skeleton h-24 w-full mb-2 rounded-xl" />)}
               </div>
             ))}
+          </div>
+        ) : isError ? (
+          <div className="max-w-lg mx-auto glass-surface rounded-xl border border-red-500/30 p-6 text-center">
+            <p className="text-sm font-medium text-red-300 mb-1">Could not load pipeline</p>
+            <p className="text-xs text-gray-500 mb-4">
+              {loadErrorMessage || 'The server returned an error or the network failed. Your board data was not loaded.'}
+            </p>
+            <button type="button" onClick={() => refetch()} className="btn-primary text-sm px-4 py-2">
+              Try again
+            </button>
           </div>
         ) : (
           <DragDropContext onDragEnd={onDragEnd}>
